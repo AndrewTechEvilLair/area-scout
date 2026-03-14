@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout — Demographics Explorer</title>
+<title>AreaScout v1.3 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -306,6 +306,22 @@
     btn.disabled = true;
     dash.classList.remove('visible');
     ph.style.display = 'none';
+
+    // ── Browser cache check (sessionStorage) ──
+    const cacheKey = 'areascout_' + loc.toLowerCase().trim();
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        renderDashboard(JSON.parse(cached));
+        bar.className = 'status';
+        bar.innerHTML = '';
+        btn.disabled = false;
+        return;
+      } catch {
+        sessionStorage.removeItem(cacheKey); // clear bad cache entry and fetch fresh
+      }
+    }
+
     bar.className = 'status loading';
     bar.innerHTML = `<div class="spinner"></div>Fetching data for <strong>${loc}</strong>…`;
 
@@ -322,6 +338,10 @@
       }
 
       const data = await res.json();
+
+      // Save to browser cache for this session
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+
       renderDashboard(data);
       bar.className = 'status';
       bar.innerHTML = '';
