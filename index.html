@@ -121,6 +121,7 @@
   .d-pos { color: var(--accent2); }
   .d-neg { color: var(--danger); }
   .d-neu { color: var(--text3); }
+  /* source pinned to bottom */
   .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); }
   .stat-card:hover .stat-source { color: var(--accent); }
 
@@ -128,20 +129,35 @@
   .mid-row { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
   @media (max-width: 720px) { .mid-row { grid-template-columns: 1fr; } }
 
-  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; }
+  /* ── Chart card — now also clickable ── */
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 18px 20px;
+    display: flex; flex-direction: column;
+  }
+  .chart-card.clickable { cursor: pointer; transition: border-color var(--ease), background var(--ease); position: relative; }
+  .chart-card.clickable:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .chart-card.clickable .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .chart-card.clickable:hover .ext-badge { opacity: 1; }
+
   .chart-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 14px; }
   .chart-wrap { position: relative; width: 100%; }
   .legend-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
   .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  /* source pinned to bottom of chart card */
+  .chart-source { margin-top: auto; padding-top: 12px; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); line-height: 1.3; transition: color var(--ease); }
+  .chart-card.clickable:hover .chart-source { color: var(--accent); }
 
   /* ── QoL grid ── */
   .qol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; align-content: start; }
   @media (max-width: 860px) { .qol-grid { grid-template-columns: repeat(2, 1fr); } }
 
+  /* QoL cards use flex column so source always pins to bottom */
   .qol-card {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
-    padding: 13px 14px; display: flex; align-items: flex-start; gap: 11px;
+    padding: 13px 14px;
+    display: flex; align-items: stretch; gap: 11px;
     transition: border-color var(--ease), background var(--ease);
     cursor: pointer; position: relative;
   }
@@ -149,19 +165,22 @@
   .qol-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
   .qol-card:hover .ext-badge { opacity: 1; }
 
-  .qol-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .qol-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-top: 2px; }
   .ic-green  { background: rgba(56,217,169,.13); }
   .ic-blue   { background: rgba(79,142,247,.13); }
   .ic-amber  { background: rgba(247,162,79,.13); }
   .ic-pink   { background: rgba(247,79,155,.13); }
   .ic-teal   { background: rgba(92,188,240,.13); }
   .ic-purple { background: rgba(155,138,251,.13); }
+  .ic-rose   { background: rgba(251,113,133,.13); }
 
-  .qol-info { flex: 1; min-width: 0; }
+  /* flex column on qol-info so source sticks to bottom */
+  .qol-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .qol-label  { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
   .qol-value  { font-size: 17px; font-weight: 600; line-height: 1.15; margin-bottom: 3px; }
   .qol-sub    { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
-  .qol-source { font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); }
+  /* source always at bottom */
+  .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); }
   .qol-card:hover .qol-source { color: var(--accent); }
 
   /* ── Insights ── */
@@ -178,7 +197,6 @@
     display: flex; gap: 10px; align-items: flex-start;
   }
   .transparency-note .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-
   .source-note { font-size: 11px; color: var(--text3); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 </style>
 </head>
@@ -233,11 +251,16 @@
 
     <div class="section-label">Employment &amp; Quality of Life</div>
     <div class="mid-row">
-      <div class="chart-card">
+
+      <!-- Sector donut — now clickable with source -->
+      <div class="chart-card clickable" id="sector-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
+        <div class="ext-badge">↗ source</div>
         <div class="chart-title">Employment by Sector</div>
         <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
         <div class="legend-row" id="legend-sec"></div>
+        <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
       </div>
+
       <div class="qol-grid" id="qol-grid"></div>
     </div>
 
@@ -251,7 +274,7 @@
       <span>Every card on this page links directly to its source — click any card to verify the data yourself. Figures are AI-synthesized estimates pulled from publicly available government and research datasets. No data has been altered or selectively chosen.</span>
     </div>
 
-    <div class="source-note">Sources: U.S. Census Bureau ACS · Bureau of Labor Statistics · Zillow Research · Missouri Economic Research · Trust for Public Land · IMLS · FAA · Niche.com</div>
+    <div class="source-note">Sources: U.S. Census Bureau ACS · Bureau of Labor Statistics · Zillow Research · Missouri Economic Research · Trust for Public Land · IMLS · FAA · Niche.com · Yelp</div>
   </div>
 </div>
 
