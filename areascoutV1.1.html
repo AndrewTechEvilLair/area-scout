@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AreaScout — Demographics Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0e0f11;
+    --bg2:     #161820;
+    --bg3:     #1d1f26;
+    --card:    #1a1c23;
+    --border:  rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text:    #e8e9ec;
+    --text2:   #9a9db0;
+    --text3:   #4f5268;
+    --accent:  #4f8ef7;
+    --accent2: #38d9a9;
+    --danger:  #f74f6b;
+    --font-d:  'DM Serif Display', Georgia, serif;
+    --font-b:  'DM Sans', system-ui, sans-serif;
+    --r:       12px;
+    --r-sm:    8px;
+    --ease:    0.18s ease;
+  }
+
+  html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-b); font-size: 15px; line-height: 1.6; }
+
+  /* ── Topbar ── */
+  .topbar {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 16px 28px; display: flex; align-items: center; gap: 20px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .brand-title { font-family: var(--font-d); font-size: 20px; letter-spacing: -0.02em; flex-shrink: 0; }
+  .brand-title span { color: var(--accent); }
+
+  .search-wrap { flex: 1; max-width: 500px; position: relative; }
+  .search-wrap input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+    padding: 10px 106px 10px 16px; font-family: var(--font-b); font-size: 14px; color: var(--text);
+    outline: none; transition: border-color var(--ease), box-shadow var(--ease);
+  }
+  .search-wrap input::placeholder { color: var(--text3); }
+  .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.14); }
+  .search-wrap button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: var(--accent); color: #fff; border: none; border-radius: 7px;
+    padding: 6px 14px; font-family: var(--font-b); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: opacity var(--ease);
+  }
+  .search-wrap button:hover { opacity: .87; }
+  .search-wrap button:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Quick pills ── */
+  .quick-row {
+    padding: 10px 28px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .quick-label { font-size: 12px; color: var(--text3); flex-shrink: 0; }
+  .pill {
+    font-size: 12px; padding: 4px 11px; border-radius: 20px;
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text2);
+    cursor: pointer; transition: all var(--ease); font-family: var(--font-b);
+  }
+  .pill:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
+
+  /* ── Main ── */
+  .main { flex: 1; padding: 24px 28px; max-width: 1080px; margin: 0 auto; width: 100%; }
+
+  .status { font-size: 13px; color: var(--text2); min-height: 22px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .status.loading { color: var(--accent); }
+  .status.error   { color: var(--danger); }
+  .spinner { width: 13px; height: 13px; border: 2px solid rgba(79,142,247,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Placeholder ── */
+  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px; text-align: center; gap: 14px; }
+  .placeholder-icon { width: 68px; height: 68px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .placeholder h2 { font-family: var(--font-d); font-size: 26px; font-weight: 400; letter-spacing: -.02em; }
+  .placeholder p { font-size: 14px; color: var(--text2); max-width: 360px; line-height: 1.7; }
+  .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; max-width: 420px; width: 100%; }
+  .sample-btn { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm); padding: 10px 8px; font-family: var(--font-b); font-size: 12px; color: var(--text2); cursor: pointer; transition: all var(--ease); text-align: center; }
+  .sample-btn:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,.07); }
+  .sample-btn strong { display: block; font-size: 13px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+
+  /* ── Dashboard ── */
+  .dashboard { display: none; animation: fadeUp .3s ease; }
+  .dashboard.visible { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .loc-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .loc-name { font-family: var(--font-d); font-size: 30px; font-weight: 400; letter-spacing: -.03em; }
+  .loc-badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.22); letter-spacing: .06em; text-transform: uppercase; }
+  .loc-year { font-size: 12px; color: var(--text3); margin-left: auto; }
+
+  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin: 20px 0 10px; }
+
+  /* ── Stat cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 9px; }
+  @media (max-width: 860px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 500px)  { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 14px 15px 11px; transition: border-color var(--ease), background var(--ease);
+    cursor: pointer; display: flex; flex-direction: column; position: relative;
+  }
+  .stat-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .stat-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .stat-card:hover .ext-badge { opacity: 1; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 600; }
+  .stat-value { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 5px; }
+  .stat-delta { font-size: 11px; margin-bottom: 8px; }
+  .d-pos { color: var(--accent2); }
+  .d-neg { color: var(--danger); }
+  .d-neu { color: var(--text3); }
+  .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); }
+  .stat-card:hover .stat-source { color: var(--accent); }
+
+  /* ── Mid row ── */
+  .mid-row { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
+  @media (max-width: 720px) { .mid-row { grid-template-columns: 1fr; } }
+
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; }
+  .chart-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 14px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── QoL grid ── */
+  .qol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; align-content: start; }
+  @media (max-width: 860px) { .qol-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .qol-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 13px 14px; display: flex; align-items: flex-start; gap: 11px;
+    transition: border-color var(--ease), background var(--ease);
+    cursor: pointer; position: relative;
+  }
+  .qol-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .qol-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .qol-card:hover .ext-badge { opacity: 1; }
+
+  .qol-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .ic-green  { background: rgba(56,217,169,.13); }
+  .ic-blue   { background: rgba(79,142,247,.13); }
+  .ic-amber  { background: rgba(247,162,79,.13); }
+  .ic-pink   { background: rgba(247,79,155,.13); }
+  .ic-teal   { background: rgba(92,188,240,.13); }
+  .ic-purple { background: rgba(155,138,251,.13); }
+
+  .qol-info { flex: 1; min-width: 0; }
+  .qol-label  { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
+  .qol-value  { font-size: 17px; font-weight: 600; line-height: 1.15; margin-bottom: 3px; }
+  .qol-sub    { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
+  .qol-source { font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); }
+  .qol-card:hover .qol-source { color: var(--accent); }
+
+  /* ── Insights ── */
+  .insights-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; margin-top: 14px; border-left: 3px solid var(--accent); }
+  .insights-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 12px; }
+  .insight-item { font-size: 13px; color: var(--text2); line-height: 1.65; padding: 8px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
+  .insight-item:last-child { border-bottom: none; }
+  .insight-bullet { color: var(--accent); flex-shrink: 0; }
+
+  .transparency-note {
+    background: rgba(56,217,169,.05); border: 1px solid rgba(56,217,169,.15);
+    border-radius: var(--r); padding: 12px 16px; margin-top: 14px;
+    font-size: 12px; color: var(--text2); line-height: 1.6;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .transparency-note .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  .source-note { font-size: 11px; color: var(--text3); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand-title">Area<span>Scout</span></div>
+  <div class="search-wrap">
+    <input type="text" id="loc-input" placeholder="City, State  or  State name — e.g. Knoxville, TN" />
+    <button id="search-btn" onclick="runSearch()">Explore →</button>
+  </div>
+</div>
+
+<div class="quick-row">
+  <span class="quick-label">Quick:</span>
+  <button class="pill" onclick="go('Knoxville, TN')">Knoxville, TN</button>
+  <button class="pill" onclick="go('Hixson, TN')">Hixson, TN</button>
+  <button class="pill" onclick="go('Chattanooga, TN')">Chattanooga, TN</button>
+  <button class="pill" onclick="go('Nashville, TN')">Nashville, TN</button>
+  <button class="pill" onclick="go('Tennessee')">Tennessee</button>
+  <button class="pill" onclick="go('Snohomish, WA')">Snohomish, WA</button>
+  <button class="pill" onclick="go('Seattle, WA')">Seattle, WA</button>
+</div>
+
+<div class="main">
+  <div class="status" id="status-bar"></div>
+
+  <div class="placeholder" id="placeholder">
+    <div class="placeholder-icon">🗺️</div>
+    <h2>Explore Any Area</h2>
+    <p>Demographics, employment, and quality-of-life data for any U.S. city or state. Every number links to its source.</p>
+    <div class="sample-grid">
+      <button class="sample-btn" onclick="go('Knoxville, TN')"><strong>Knoxville, TN</strong>Mid-size city</button>
+      <button class="sample-btn" onclick="go('Chattanooga, TN')"><strong>Chattanooga, TN</strong>Growing metro</button>
+      <button class="sample-btn" onclick="go('Hixson, TN')"><strong>Hixson, TN</strong>Suburban area</button>
+      <button class="sample-btn" onclick="go('Nashville, TN')"><strong>Nashville, TN</strong>Major metro</button>
+      <button class="sample-btn" onclick="go('Tennessee')"><strong>Tennessee</strong>Full state</button>
+      <button class="sample-btn" onclick="go('Seattle, WA')"><strong>Seattle, WA</strong>PNW comparison</button>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+
+    <div class="loc-header">
+      <div class="loc-name" id="loc-name"></div>
+      <div class="loc-badge" id="loc-type"></div>
+      <div class="loc-year" id="loc-year"></div>
+    </div>
+
+    <div class="section-label">Demographics &amp; Economy</div>
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <div class="section-label">Employment &amp; Quality of Life</div>
+    <div class="mid-row">
+      <div class="chart-card">
+        <div class="chart-title">Employment by Sector</div>
+        <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
+        <div class="legend-row" id="legend-sec"></div>
+      </div>
+      <div class="qol-grid" id="qol-grid"></div>
+    </div>
+
+    <div class="insights-card">
+      <div class="insights-title">Relocation Insights</div>
+      <div id="insights-list"></div>
+    </div>
+
+    <div class="transparency-note">
+      <span class="icon">🔍</span>
+      <span>Every card on this page links directly to its source — click any card to verify the data yourself. Figures are AI-synthesized estimates pulled from publicly available government and research datasets. No data has been altered or selectively chosen.</span>
+    </div>
+
+    <div class="source-note">Sources: U.S. Census Bureau ACS · Bureau of Labor Statistics · Zillow Research · Missouri Economic Research · Trust for Public Land · IMLS · FAA · Niche.com</div>
+  </div>
+</div>
+
+<script>
+  const WORKER_URL = 'https://late-snow-cc74.lordbizness1234.workers.dev/';
+
+  const SEC_COLORS = ['#4f8ef7','#38d9a9','#f7a24f','#f74f6b','#9b8afb','#5cbcf0','#6ee7b7'];
+  let activeChart = null;
+
+  function go(loc) { document.getElementById('loc-input').value = loc; runSearch(); }
+  document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+
+  function openLink(sourceUrl, searchQuery) {
+    const url = (sourceUrl && sourceUrl.trim())
+      ? sourceUrl.trim()
+      : 'https://www.google.com/search?q=' + encodeURIComponent(searchQuery || '');
+    window.open(url, '_blank', 'noopener');
+  }
+
+  async function runSearch() {
+    const loc  = document.getElementById('loc-input').value.trim();
+    const btn  = document.getElementById('search-btn');
+    const bar  = document.getElementById('status-bar');
+    const dash = document.getElementById('dashboard');
+    const ph   = document.getElementById('placeholder');
+
+    if (!loc) { alert('Please enter a city, state, or state name.'); return; }
+
+    btn.disabled = true;
+    dash.classList.remove('visible');
+    ph.style.display = 'none';
+    bar.className = 'status loading';
+    bar.innerHTML = `<div class="spinner"></div>Fetching data for <strong>${loc}</strong>…`;
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: loc })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Worker error ${res.status}`);
+      }
+
+      const data = await res.json();
+      renderDashboard(data);
+      bar.className = 'status';
+      bar.innerHTML = '';
+
+    } catch(err) {
+      bar.className = 'status error';
+      bar.innerHTML = `⚠ ${err.message || 'Something went wrong — check the Worker and try again.'}`;
+      ph.style.display = 'flex';
+    }
+
+    btn.disabled = false;
+  }
+
+  function renderDashboard(d) {
+    document.getElementById('loc-name').textContent = d.location;
+    document.getElementById('loc-type').textContent  = d.locationType;
+    document.getElementById('loc-year').textContent  = d.dataYear;
+
+    // ── Stat cards ──
+    document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
+      let dc = 'd-neu';
+      if (s.delta && s.deltaGood !== null && s.deltaGood !== undefined) {
+        const pos = s.delta.startsWith('+') || /below|under/i.test(s.delta);
+        const neg = s.delta.startsWith('-') || /above|over/i.test(s.delta);
+        dc = s.deltaGood ? (pos ? 'd-pos' : neg ? 'd-neg' : 'd-neu') : (pos ? 'd-neg' : neg ? 'd-pos' : 'd-neu');
+      }
+      const srcUrl   = (s.sourceUrl || '').trim();
+      const query    = s.searchQuery || (s.label + ' ' + d.location);
+      const badgeTxt = srcUrl ? '↗ source' : '↗ search';
+      return `<div class="stat-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
+        <div class="ext-badge">${badgeTxt}</div>
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}</div>
+        ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:8px"></div>'}
+        <div class="stat-source">${s.sourceName}</div>
+      </div>`;
+    }).join('');
+
+    // ── Sector donut ──
+    if (activeChart) { activeChart.destroy(); activeChart = null; }
+    activeChart = new Chart(document.getElementById('chart-sec'), {
+      type: 'doughnut',
+      data: {
+        labels: d.sectors.labels,
+        datasets: [{ data: d.sectors.values, backgroundColor: SEC_COLORS, borderWidth: 2, borderColor: '#1a1c23' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '60%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: c => ` ${c.label}: ${c.parsed}%` },
+            backgroundColor: '#1d1f26', titleColor: '#e8e9ec', bodyColor: '#9a9db0',
+            borderColor: 'rgba(255,255,255,0.07)', borderWidth: 1
+          }
+        }
+      }
+    });
+    document.getElementById('legend-sec').innerHTML = d.sectors.labels.map((l,i) =>
+      `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
+    ).join('');
+
+    // ── QoL cards ──
+    document.getElementById('qol-grid').innerHTML = (d.qualityOfLife || []).map(q => {
+      const srcUrl   = (q.sourceUrl || '').trim();
+      const query    = q.searchQuery || (q.label + ' ' + d.location);
+      const badgeTxt = srcUrl ? '↗ source' : '↗ search';
+      return `<div class="qol-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
+        <div class="ext-badge">${badgeTxt}</div>
+        <div class="qol-icon ${q.iconClass}">${q.icon}</div>
+        <div class="qol-info">
+          <div class="qol-label">${q.label}</div>
+          <div class="qol-value">${q.value}</div>
+          <div class="qol-sub">${q.detail}</div>
+          <div class="qol-source">${q.sourceName}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // ── Insights ──
+    document.getElementById('insights-list').innerHTML = (d.insights || []).map(i =>
+      `<div class="insight-item"><span class="insight-bullet">›</span>${i}</div>`
+    ).join('');
+
+    document.getElementById('dashboard').classList.add('visible');
+    document.getElementById('placeholder').style.display = 'none';
+  }
+</script>
+</body>
+</html>
