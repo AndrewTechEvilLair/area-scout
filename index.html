@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v1.3 — Demographics Explorer</title>
+<title>AreaScout v1.4 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -58,6 +58,26 @@
   .search-wrap button:hover { opacity: .87; }
   .search-wrap button:disabled { opacity: .4; cursor: not-allowed; }
 
+  /* ── Autocomplete ── */
+  .ac-list {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm);
+    z-index: 200; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    display: none;
+  }
+  .ac-list.open { display: block; }
+  .ac-item {
+    padding: 9px 14px; font-size: 13px; color: var(--text2);
+    cursor: pointer; transition: background var(--ease), color var(--ease);
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: rgba(79,142,247,.1); color: var(--text); }
+  .ac-item .ac-pin  { font-size: 11px; opacity: .45; flex-shrink: 0; }
+  .ac-item .ac-main { font-weight: 500; color: var(--text); flex: 1; }
+  .ac-item .ac-sub  { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
   /* ── Quick pills ── */
   .quick-row {
     padding: 10px 28px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
@@ -74,7 +94,7 @@
   /* ── Main ── */
   .main { flex: 1; padding: 24px 28px; max-width: 1080px; margin: 0 auto; width: 100%; }
 
-  .status { font-size: 13px; color: var(--text2); min-height: 22px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .status { font-size: 13px; color: var(--text2); min-height: 22px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; transition: all .3s ease; }
   .status.loading { color: var(--accent); }
   .status.error   { color: var(--danger); }
   .spinner { width: 13px; height: 13px; border: 2px solid rgba(79,142,247,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
@@ -115,13 +135,12 @@
   .stat-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
   .stat-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
   .stat-card:hover .ext-badge { opacity: 1; }
-  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 600; }
-  .stat-value { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 5px; }
-  .stat-delta { font-size: 11px; margin-bottom: 8px; }
+  .stat-label  { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 600; }
+  .stat-value  { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 5px; }
+  .stat-delta  { font-size: 11px; margin-bottom: 8px; }
   .d-pos { color: var(--accent2); }
   .d-neg { color: var(--danger); }
   .d-neu { color: var(--text3); }
-  /* source pinned to bottom */
   .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); }
   .stat-card:hover .stat-source { color: var(--accent); }
 
@@ -129,35 +148,29 @@
   .mid-row { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
   @media (max-width: 720px) { .mid-row { grid-template-columns: 1fr; } }
 
-  /* ── Chart card — now also clickable ── */
   .chart-card {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
-    padding: 18px 20px;
-    display: flex; flex-direction: column;
+    padding: 18px 20px; display: flex; flex-direction: column;
+    cursor: pointer; transition: border-color var(--ease), background var(--ease); position: relative;
   }
-  .chart-card.clickable { cursor: pointer; transition: border-color var(--ease), background var(--ease); position: relative; }
-  .chart-card.clickable:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
-  .chart-card.clickable .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
-  .chart-card.clickable:hover .ext-badge { opacity: 1; }
-
+  .chart-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .chart-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .chart-card:hover .ext-badge { opacity: 1; }
   .chart-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 14px; }
   .chart-wrap { position: relative; width: 100%; }
   .legend-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
   .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-  /* source pinned to bottom of chart card */
   .chart-source { margin-top: auto; padding-top: 12px; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); line-height: 1.3; transition: color var(--ease); }
-  .chart-card.clickable:hover .chart-source { color: var(--accent); }
+  .chart-card:hover .chart-source { color: var(--accent); }
 
   /* ── QoL grid ── */
   .qol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; align-content: start; }
   @media (max-width: 860px) { .qol-grid { grid-template-columns: repeat(2, 1fr); } }
 
-  /* QoL cards use flex column so source always pins to bottom */
   .qol-card {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
-    padding: 13px 14px;
-    display: flex; align-items: stretch; gap: 11px;
+    padding: 13px 14px; display: flex; align-items: stretch; gap: 11px;
     transition: border-color var(--ease), background var(--ease);
     cursor: pointer; position: relative;
   }
@@ -174,12 +187,10 @@
   .ic-purple { background: rgba(155,138,251,.13); }
   .ic-rose   { background: rgba(251,113,133,.13); }
 
-  /* flex column on qol-info so source sticks to bottom */
   .qol-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .qol-label  { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
   .qol-value  { font-size: 17px; font-weight: 600; line-height: 1.15; margin-bottom: 3px; }
   .qol-sub    { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
-  /* source always at bottom */
   .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); }
   .qol-card:hover .qol-source { color: var(--accent); }
 
@@ -205,8 +216,9 @@
 <div class="topbar">
   <div class="brand-title">Area<span>Scout</span></div>
   <div class="search-wrap">
-    <input type="text" id="loc-input" placeholder="City, State  or  State name — e.g. Knoxville, TN" />
+    <input type="text" id="loc-input" placeholder="City, State or State — e.g. Knoxville, TN" autocomplete="off" />
     <button id="search-btn" onclick="runSearch()">Explore →</button>
+    <div class="ac-list" id="ac-list"></div>
   </div>
 </div>
 
@@ -239,7 +251,6 @@
   </div>
 
   <div class="dashboard" id="dashboard">
-
     <div class="loc-header">
       <div class="loc-name" id="loc-name"></div>
       <div class="loc-badge" id="loc-type"></div>
@@ -251,16 +262,13 @@
 
     <div class="section-label">Employment &amp; Quality of Life</div>
     <div class="mid-row">
-
-      <!-- Sector donut — now clickable with source -->
-      <div class="chart-card clickable" id="sector-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
+      <div class="chart-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
         <div class="ext-badge">↗ source</div>
         <div class="chart-title">Employment by Sector</div>
         <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
         <div class="legend-row" id="legend-sec"></div>
         <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
       </div>
-
       <div class="qol-grid" id="qol-grid"></div>
     </div>
 
@@ -279,156 +287,283 @@
 </div>
 
 <script>
-  const WORKER_URL = 'https://late-snow-cc74.lordbizness1234.workers.dev/';
+const WORKER_URL = 'https://late-snow-cc74.lordbizness1234.workers.dev/';
+const SEC_COLORS = ['#4f8ef7','#38d9a9','#f7a24f','#f74f6b','#9b8afb','#5cbcf0','#6ee7b7'];
 
-  const SEC_COLORS = ['#4f8ef7','#38d9a9','#f7a24f','#f74f6b','#9b8afb','#5cbcf0','#6ee7b7'];
-  let activeChart = null;
+let activeChart = null;
+let acDebounce  = null;
+let acIndex     = -1;
+let acItems     = [];
+let msgInterval = null;
 
-  function go(loc) { document.getElementById('loc-input').value = loc; runSearch(); }
-  document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+// ── Funny loading messages ──
+const LOADING_MSGS = [
+  loc => `Bribing the Census Bureau for ${loc} data...`,
+  loc => `Asking someone's cousin who actually moved to ${loc}...`,
+  loc => `Checking if ${loc} has enough coffee shops...`,
+  loc => `Consulting the local Nextdoor drama for vibes...`,
+  loc => `Calculating ice cream shop to person ratio...`,
+  loc => `Running ${loc} through the vibe check algorithm...`,
+  loc => `Interrogating Zillow. They're being difficult...`,
+  loc => `Cross-referencing with someone's mom who knows everything...`,
+  loc => `Googling "is ${loc} actually worth it"...`,
+  loc => `Making up extremely believable statistics...`,
+  loc => `Asking the ghosts of demographers past...`,
+  loc => `Checking if there's a Buc-ee's within reasonable distance...`,
+];
 
-  function openLink(sourceUrl, searchQuery) {
-    const url = (sourceUrl && sourceUrl.trim())
-      ? sourceUrl.trim()
-      : 'https://www.google.com/search?q=' + encodeURIComponent(searchQuery || '');
-    window.open(url, '_blank', 'noopener');
+function startFunnyMessages(loc, barEl) {
+  const picked = [...LOADING_MSGS].sort(() => Math.random() - 0.5).slice(0, 5);
+  let i = 0;
+  barEl.innerHTML = `<div class="spinner"></div>${picked[0](loc)}`;
+  msgInterval = setInterval(() => {
+    i = (i + 1) % picked.length;
+    barEl.innerHTML = `<div class="spinner"></div>${picked[i](loc)}`;
+  }, 2000);
+}
+
+function stopFunnyMessages() {
+  if (msgInterval) { clearInterval(msgInterval); msgInterval = null; }
+}
+
+// ── Autocomplete via Nominatim (free, no key needed) ──
+const acListEl  = document.getElementById('ac-list');
+const locInput  = document.getElementById('loc-input');
+
+locInput.addEventListener('input', () => {
+  clearTimeout(acDebounce);
+  const val = locInput.value.trim();
+  if (val.length < 2) { closeAc(); return; }
+  acDebounce = setTimeout(() => fetchAc(val), 300);
+});
+
+locInput.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveAc(1); return; }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); moveAc(-1); return; }
+  if (e.key === 'Escape')    { closeAc(); return; }
+  if (e.key === 'Enter')     { closeAc(); runSearch(); }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) closeAc();
+});
+
+async function fetchAc(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=us`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
+    const data = await res.json();
+
+    // Keep only city/town/state/county level results
+    const keep = ['city','town','village','suburb','county','state','municipality','administrative'];
+    const filtered = data.filter(r => keep.includes(r.type) || keep.includes(r.addresstype) || keep.includes(r.class));
+
+    renderAc(filtered.slice(0, 5));
+  } catch { closeAc(); }
+}
+
+function renderAc(items) {
+  acItems = items;
+  acIndex = -1;
+  if (!items.length) { closeAc(); return; }
+
+  acListEl.innerHTML = items.map((item, i) => {
+    const addr  = item.address || {};
+    const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+    const state = addr.state || '';
+    const main  = state ? `${city}, ${state}` : city;
+    const sub   = addr.county && addr.county !== city ? addr.county : '';
+    return `<div class="ac-item" data-i="${i}" onmousedown="selectAc(${i})">
+      <span class="ac-pin">📍</span>
+      <span class="ac-main">${main}</span>
+      ${sub ? `<span class="ac-sub">${sub}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  acListEl.classList.add('open');
+}
+
+function selectAc(i) {
+  const item = acItems[i];
+  if (!item) return;
+  const addr  = item.address || {};
+  const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+  const state = addr.state || '';
+  locInput.value = state ? `${city}, ${state}` : city;
+  closeAc();
+  runSearch();
+}
+
+function moveAc(dir) {
+  const rows = acListEl.querySelectorAll('.ac-item');
+  if (!rows.length) return;
+  acIndex = Math.max(-1, Math.min(rows.length - 1, acIndex + dir));
+  rows.forEach((r, i) => r.classList.toggle('active', i === acIndex));
+  if (acIndex >= 0) {
+    const item  = acItems[acIndex];
+    const addr  = item.address || {};
+    const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+    const state = addr.state || '';
+    locInput.value = state ? `${city}, ${state}` : city;
   }
+}
 
-  async function runSearch() {
-    const loc  = document.getElementById('loc-input').value.trim();
-    const btn  = document.getElementById('search-btn');
-    const bar  = document.getElementById('status-bar');
-    const dash = document.getElementById('dashboard');
-    const ph   = document.getElementById('placeholder');
+function closeAc() {
+  acListEl.classList.remove('open');
+  acListEl.innerHTML = '';
+  acItems = [];
+  acIndex = -1;
+}
 
-    if (!loc) { alert('Please enter a city, state, or state name.'); return; }
+// ── Navigation helpers ──
+function go(loc) { locInput.value = loc; closeAc(); runSearch(); }
 
-    btn.disabled = true;
-    dash.classList.remove('visible');
-    ph.style.display = 'none';
+function openLink(sourceUrl, searchQuery) {
+  const url = (sourceUrl && sourceUrl.trim())
+    ? sourceUrl.trim()
+    : 'https://www.google.com/search?q=' + encodeURIComponent(searchQuery || '');
+  window.open(url, '_blank', 'noopener');
+}
 
-    // ── Browser cache check (sessionStorage) ──
-    const cacheKey = 'areascout_' + loc.toLowerCase().trim();
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        renderDashboard(JSON.parse(cached));
-        bar.className = 'status';
-        bar.innerHTML = '';
-        btn.disabled = false;
-        return;
-      } catch {
-        sessionStorage.removeItem(cacheKey); // clear bad cache entry and fetch fresh
-      }
-    }
+// ── Main search ──
+async function runSearch() {
+  const loc  = locInput.value.trim();
+  const btn  = document.getElementById('search-btn');
+  const bar  = document.getElementById('status-bar');
+  const dash = document.getElementById('dashboard');
+  const ph   = document.getElementById('placeholder');
 
-    bar.className = 'status loading';
-    bar.innerHTML = `<div class="spinner"></div>Fetching data for <strong>${loc}</strong>…`;
+  if (!loc) { alert('Please enter a city, state, or state name.'); return; }
 
+  btn.disabled = true;
+  dash.classList.remove('visible');
+  ph.style.display = 'none';
+
+  // ── Browser sessionStorage cache ──
+  const cacheKey = 'areascout_' + loc.toLowerCase().trim();
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
     try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: loc })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Worker error ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      // Save to browser cache for this session
-      try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
-
-      renderDashboard(data);
+      renderDashboard(JSON.parse(cached));
       bar.className = 'status';
       bar.innerHTML = '';
+      btn.disabled = false;
+      return;
+    } catch {
+      sessionStorage.removeItem(cacheKey);
+    }
+  }
 
-    } catch(err) {
-      bar.className = 'status error';
-      bar.innerHTML = `⚠ ${err.message || 'Something went wrong — check the Worker and try again.'}`;
-      ph.style.display = 'flex';
+  // ── Start funny loading messages ──
+  bar.className = 'status loading';
+  startFunnyMessages(loc, bar);
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: loc })
+    });
+
+    stopFunnyMessages();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Worker error ${res.status}`);
     }
 
-    btn.disabled = false;
+    const data = await res.json();
+    try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+
+    renderDashboard(data);
+    bar.className = 'status';
+    bar.innerHTML = '';
+
+  } catch(err) {
+    stopFunnyMessages();
+    bar.className = 'status error';
+    bar.innerHTML = `⚠ ${err.message || 'Something went wrong — check the Worker and try again.'}`;
+    ph.style.display = 'flex';
   }
 
-  function renderDashboard(d) {
-    document.getElementById('loc-name').textContent = d.location;
-    document.getElementById('loc-type').textContent  = d.locationType;
-    document.getElementById('loc-year').textContent  = d.dataYear;
+  btn.disabled = false;
+}
 
-    // ── Stat cards ──
-    document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
-      let dc = 'd-neu';
-      if (s.delta && s.deltaGood !== null && s.deltaGood !== undefined) {
-        const pos = s.delta.startsWith('+') || /below|under/i.test(s.delta);
-        const neg = s.delta.startsWith('-') || /above|over/i.test(s.delta);
-        dc = s.deltaGood ? (pos ? 'd-pos' : neg ? 'd-neg' : 'd-neu') : (pos ? 'd-neg' : neg ? 'd-pos' : 'd-neu');
-      }
-      const srcUrl   = (s.sourceUrl || '').trim();
-      const query    = s.searchQuery || (s.label + ' ' + d.location);
-      const badgeTxt = srcUrl ? '↗ source' : '↗ search';
-      return `<div class="stat-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
-        <div class="ext-badge">${badgeTxt}</div>
-        <div class="stat-label">${s.label}</div>
-        <div class="stat-value">${s.value}</div>
-        ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:8px"></div>'}
-        <div class="stat-source">${s.sourceName}</div>
-      </div>`;
-    }).join('');
+// ── Render dashboard ──
+function renderDashboard(d) {
+  document.getElementById('loc-name').textContent = d.location;
+  document.getElementById('loc-type').textContent  = d.locationType;
+  document.getElementById('loc-year').textContent  = d.dataYear;
 
-    // ── Sector donut ──
-    if (activeChart) { activeChart.destroy(); activeChart = null; }
-    activeChart = new Chart(document.getElementById('chart-sec'), {
-      type: 'doughnut',
-      data: {
-        labels: d.sectors.labels,
-        datasets: [{ data: d.sectors.values, backgroundColor: SEC_COLORS, borderWidth: 2, borderColor: '#1a1c23' }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '60%',
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: { label: c => ` ${c.label}: ${c.parsed}%` },
-            backgroundColor: '#1d1f26', titleColor: '#e8e9ec', bodyColor: '#9a9db0',
-            borderColor: 'rgba(255,255,255,0.07)', borderWidth: 1
-          }
+  // Stat cards
+  document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
+    let dc = 'd-neu';
+    if (s.delta && s.deltaGood !== null && s.deltaGood !== undefined) {
+      const pos = s.delta.startsWith('+') || /below|under/i.test(s.delta);
+      const neg = s.delta.startsWith('-') || /above|over/i.test(s.delta);
+      dc = s.deltaGood ? (pos ? 'd-pos' : neg ? 'd-neg' : 'd-neu') : (pos ? 'd-neg' : neg ? 'd-pos' : 'd-neu');
+    }
+    const srcUrl = (s.sourceUrl || '').trim();
+    const query  = s.searchQuery || (s.label + ' ' + d.location);
+    const badge  = srcUrl ? '↗ source' : '↗ search';
+    return `<div class="stat-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
+      <div class="ext-badge">${badge}</div>
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.value}</div>
+      ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:8px"></div>'}
+      <div class="stat-source">${s.sourceName}</div>
+    </div>`;
+  }).join('');
+
+  // Sector donut
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  activeChart = new Chart(document.getElementById('chart-sec'), {
+    type: 'doughnut',
+    data: {
+      labels: d.sectors.labels,
+      datasets: [{ data: d.sectors.values, backgroundColor: SEC_COLORS, borderWidth: 2, borderColor: '#1a1c23' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => ` ${c.label}: ${c.parsed}%` },
+          backgroundColor: '#1d1f26', titleColor: '#e8e9ec', bodyColor: '#9a9db0',
+          borderColor: 'rgba(255,255,255,0.07)', borderWidth: 1
         }
       }
-    });
-    document.getElementById('legend-sec').innerHTML = d.sectors.labels.map((l,i) =>
-      `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
-    ).join('');
+    }
+  });
+  document.getElementById('legend-sec').innerHTML = d.sectors.labels.map((l,i) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
+  ).join('');
 
-    // ── QoL cards ──
-    document.getElementById('qol-grid').innerHTML = (d.qualityOfLife || []).map(q => {
-      const srcUrl   = (q.sourceUrl || '').trim();
-      const query    = q.searchQuery || (q.label + ' ' + d.location);
-      const badgeTxt = srcUrl ? '↗ source' : '↗ search';
-      return `<div class="qol-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
-        <div class="ext-badge">${badgeTxt}</div>
-        <div class="qol-icon ${q.iconClass}">${q.icon}</div>
-        <div class="qol-info">
-          <div class="qol-label">${q.label}</div>
-          <div class="qol-value">${q.value}</div>
-          <div class="qol-sub">${q.detail}</div>
-          <div class="qol-source">${q.sourceName}</div>
-        </div>
-      </div>`;
-    }).join('');
+  // QoL cards
+  document.getElementById('qol-grid').innerHTML = (d.qualityOfLife || []).map(q => {
+    const srcUrl = (q.sourceUrl || '').trim();
+    const query  = q.searchQuery || (q.label + ' ' + d.location);
+    const badge  = srcUrl ? '↗ source' : '↗ search';
+    return `<div class="qol-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
+      <div class="ext-badge">${badge}</div>
+      <div class="qol-icon ${q.iconClass}">${q.icon}</div>
+      <div class="qol-info">
+        <div class="qol-label">${q.label}</div>
+        <div class="qol-value">${q.value}</div>
+        <div class="qol-sub">${q.detail}</div>
+        <div class="qol-source">${q.sourceName}</div>
+      </div>
+    </div>`;
+  }).join('');
 
-    // ── Insights ──
-    document.getElementById('insights-list').innerHTML = (d.insights || []).map(i =>
-      `<div class="insight-item"><span class="insight-bullet">›</span>${i}</div>`
-    ).join('');
+  // Insights
+  document.getElementById('insights-list').innerHTML = (d.insights || []).map(i =>
+    `<div class="insight-item"><span class="insight-bullet">›</span>${i}</div>`
+  ).join('');
 
-    document.getElementById('dashboard').classList.add('visible');
-    document.getElementById('placeholder').style.display = 'none';
-  }
+  document.getElementById('dashboard').classList.add('visible');
+  document.getElementById('placeholder').style.display = 'none';
+}
 </script>
 </body>
 </html>
