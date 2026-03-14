@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v1.4 — Demographics Explorer</title>
+<title>AreaScout v1.5 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -209,6 +209,41 @@
   }
   .transparency-note .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
   .source-note { font-size: 11px; color: var(--text3); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  /* ── Share / action row ── */
+  .action-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-sm);
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text2);
+    cursor: pointer; transition: all var(--ease); font-family: var(--font-b); text-decoration: none;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
+  .action-btn.copied { border-color: var(--accent2); color: var(--accent2); background: rgba(56,217,169,.08); }
+
+  /* ── Map + Wiki links in loc-header ── */
+  .loc-links { display: flex; gap: 8px; margin-left: 8px; align-items: center; }
+  .loc-link {
+    font-size: 11px; padding: 3px 9px; border-radius: 20px;
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text3);
+    cursor: pointer; text-decoration: none; transition: all var(--ease);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .loc-link:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
+
+  /* ── BMC + donut side by side ── */
+  .chart-inner { display: flex; flex-direction: column; height: 100%; }
+  .bmc-wrap { margin-top: 10px; display: flex; justify-content: center; }
+
+  /* ── Print styles ── */
+  @media print {
+    .topbar, .quick-row, .action-row, .bmc-wrap, .transparency-note { display: none !important; }
+    .dashboard { display: block !important; }
+    body { background: #fff; color: #000; font-size: 12px; }
+    .stat-card, .qol-card, .chart-card, .insights-card { border: 1px solid #ddd; break-inside: avoid; }
+    .loc-link { display: none; }
+  }
+
 </style>
 </head>
 <body>
@@ -254,7 +289,13 @@
     <div class="loc-header">
       <div class="loc-name" id="loc-name"></div>
       <div class="loc-badge" id="loc-type"></div>
+      <div class="loc-links" id="loc-links"></div>
       <div class="loc-year" id="loc-year"></div>
+    </div>
+
+    <div class="action-row">
+      <button class="action-btn" id="share-btn" onclick="shareLocation()">🔗 Share this report</button>
+      <button class="action-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
     </div>
 
     <div class="section-label">Demographics &amp; Economy</div>
@@ -265,9 +306,12 @@
       <div class="chart-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
         <div class="ext-badge">↗ source</div>
         <div class="chart-title">Employment by Sector</div>
-        <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
+        <div class="chart-wrap" style="height:150px"><canvas id="chart-sec"></canvas></div>
         <div class="legend-row" id="legend-sec"></div>
         <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
+        <div class="bmc-wrap">
+          <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="AndrewTech" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
+        </div>
       </div>
       <div class="qol-grid" id="qol-grid"></div>
     </div>
@@ -489,11 +533,57 @@ async function runSearch() {
   btn.disabled = false;
 }
 
+// ── Share location via URL param ──
+function shareLocation() {
+  const loc = document.getElementById('loc-name').textContent;
+  if (!loc) return;
+  const url = window.location.origin + window.location.pathname + '?loc=' + encodeURIComponent(loc);
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('share-btn');
+    btn.textContent = '✓ Link copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '🔗 Share this report';
+      btn.classList.remove('copied');
+    }, 2500);
+  }).catch(() => {
+    prompt('Copy this link:', url);
+  });
+}
+
+// ── Auto-load from URL param on page load ──
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const loc = params.get('loc');
+  if (loc) {
+    document.getElementById('loc-input').value = loc;
+    runSearch();
+  }
+});
+
 // ── Render dashboard ──
 function renderDashboard(d) {
   document.getElementById('loc-name').textContent = d.location;
   document.getElementById('loc-type').textContent  = d.locationType;
   document.getElementById('loc-year').textContent  = d.dataYear;
+
+  // ── Map link (always shown) ──
+  const mapUrl = 'https://www.google.com/maps/search/' + encodeURIComponent(d.location);
+  document.getElementById('loc-links').innerHTML =
+    `<a class="loc-link" href="${mapUrl}" target="_blank" rel="noopener">🗺 Map</a>`;
+
+  // ── Wikipedia — only show link if article actually exists ──
+  (function(loc) {
+    const wikiTitle = loc.replace(/,\s*/g, ',_').replace(/\s+/g, '_');
+    fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(wikiTitle))
+      .then(function(r) {
+        if (r.ok) {
+          const el = document.getElementById('loc-links');
+          if (el) el.innerHTML += '<a class="loc-link" href="https://en.wikipedia.org/wiki/' + encodeURIComponent(wikiTitle) + '" target="_blank" rel="noopener">📖 Wiki</a>';
+        }
+      })
+      .catch(function() {});
+  })(d.location);
 
   // Stat cards
   document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
