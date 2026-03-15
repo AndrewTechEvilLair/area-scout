@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v2.0 — Demographics Explorer</title>
+<title>AreaScout v2.1 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -278,33 +278,60 @@
   .wc-summer-peak .weather-sub { color: #904030; }
 
 
-  /* ── Trivia card ── */
+  /* ── Trivia full-width card ── */
   @keyframes trivia-pulse {
     0%, 100% { border-color: var(--border); box-shadow: none; }
     50%       { border-color: rgba(155,138,251,.6); box-shadow: 0 0 0 3px rgba(155,138,251,.12); }
   }
-  .trivia-card {
+  .trivia-full {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
-    padding: 13px 14px; display: flex; align-items: stretch; gap: 11px;
-    transition: border-color var(--ease), background var(--ease);
-    cursor: pointer; position: relative;
+    padding: 18px 20px; display: flex; align-items: center; gap: 18px;
+    cursor: pointer; transition: border-color var(--ease), background var(--ease);
     animation: trivia-pulse 2.5s ease-in-out 1s 3;
   }
-  .trivia-card:hover {
-    border-color: var(--accent); background: rgba(79,142,247,.04);
-    animation: none;
+  .trivia-full:hover { border-color: rgba(155,138,251,.5); background: rgba(155,138,251,.04); animation: none; }
+  .trivia-full.loaded { animation: trivia-pulse 2.5s ease-in-out 0.5s 3; }
+
+  .trivia-full-left { flex-shrink: 0; }
+  .trivia-dice {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: rgba(155,138,251,.15); border: 1px solid rgba(155,138,251,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; transition: transform .3s ease;
   }
-  .trivia-card.loaded { animation: trivia-pulse 2.5s ease-in-out 0.5s 3; }
-  .trivia-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
-  .trivia-card:hover .ext-badge { opacity: 1; }
-  .trivia-loading { opacity: .5; font-style: italic; }
-  .trivia-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-top: 2px; background: rgba(155,138,251,.13); }
-  .trivia-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .trivia-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
-  .trivia-text  { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 6px; flex: 1; }
-  .trivia-tap   { font-size: 10px; color: var(--text3); font-style: italic; margin-bottom: 4px; }
-  .trivia-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; min-height: 2.6em; display: flex; align-items: flex-end; transition: color var(--ease); }
-  .trivia-card:hover .trivia-source { color: var(--accent); }
+  .trivia-full:hover .trivia-dice { transform: rotate(20deg) scale(1.1); }
+
+  .trivia-full-body { flex: 1; min-width: 0; }
+  .trivia-full-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: rgba(155,138,251,.9); margin-bottom: 7px;
+  }
+  .trivia-full-text {
+    font-size: 14px; color: var(--text); line-height: 1.65; margin-bottom: 10px;
+    transition: opacity .25s ease;
+  }
+  .trivia-full-source {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text3);
+    padding-top: 8px; border-top: 1px solid var(--border);
+  }
+  .trivia-source-icon { font-size: 12px; opacity: .55; }
+  .trivia-loading { opacity: .4; font-style: italic; font-size: 13px; }
+
+  .trivia-full-right {
+    flex-shrink: 0; display: flex; flex-direction: column;
+    align-items: center; gap: 5px; padding-left: 4px;
+  }
+  .trivia-refresh {
+    font-size: 22px; line-height: 1; opacity: .35;
+    transition: transform .45s ease, opacity var(--ease);
+  }
+  .trivia-full:hover .trivia-refresh { opacity: 1; transform: rotate(180deg); }
+  .trivia-hint {
+    font-size: 10px; color: var(--text3); text-align: center;
+    line-height: 1.3; opacity: 0; transition: opacity var(--ease);
+  }
+  .trivia-full:hover .trivia-hint { opacity: 1; }
 
 </style>
 </head>
@@ -367,6 +394,25 @@
     <div class="section-label">Demographics &amp; Economy</div>
     <div class="stat-grid" id="stat-grid"></div>
 
+    <div class="section-label">Did You Know?</div>
+    <div class="trivia-full" id="trivia-card" onclick="refreshTrivia()">
+      <div class="trivia-full-left">
+        <div class="trivia-dice">🎲</div>
+      </div>
+      <div class="trivia-full-body">
+        <div class="trivia-full-label">Did You Know?</div>
+        <div class="trivia-full-text" id="trivia-text"><span class="trivia-loading">Loading a fun fact...</span></div>
+        <div class="trivia-full-source">
+          <span class="trivia-source-icon">📖</span>
+          <span id="trivia-source"></span>
+        </div>
+      </div>
+      <div class="trivia-full-right">
+        <div class="trivia-refresh" title="Next fact">🔄</div>
+        <div class="trivia-hint">tap for<br>another</div>
+      </div>
+    </div>
+
     <div class="section-label">Employment &amp; Quality of Life</div>
     <div class="mid-row">
       <div style="display:flex;flex-direction:column;gap:10px;">
@@ -381,19 +427,7 @@
         <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="AndrewTech" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
       </div>
       </div>
-      <div class="qol-grid" id="qol-grid">
-        <!-- 10th slot: trivia card — static, populated by loadTrivia() -->
-        <div class="trivia-card" id="trivia-card" onclick="refreshTrivia()">
-          <div class="ext-badge">↺ tap for more</div>
-          <div class="trivia-icon">🎲</div>
-          <div class="trivia-info">
-            <div class="trivia-label">Did You Know?</div>
-            <div class="trivia-text" id="trivia-text"><span class="trivia-loading">Loading trivia...</span></div>
-            <div class="trivia-tap">Tap for another fact</div>
-            <div class="trivia-source" id="trivia-source"></div>
-          </div>
-        </div>
-      </div>
+      <div class="qol-grid" id="qol-grid"></div>
     </div>
 
     <div class="insights-card">
@@ -660,9 +694,16 @@ async function loadTrivia(loc) {
   triviaIndex = 0;
   const textEl   = document.getElementById('trivia-text');
   const sourceEl = document.getElementById('trivia-source');
+  const card     = document.getElementById('trivia-card');
   if (!textEl) return;
-  textEl.innerHTML = '<span class="trivia-loading">Loading trivia...</span>';
-  sourceEl.textContent = '';
+  textEl.innerHTML = '<span class="trivia-loading">Loading a fun fact...</span>';
+  if (sourceEl) sourceEl.textContent = '';
+  // Restart pulse animation
+  if (card) {
+    card.classList.remove('loaded');
+    void card.offsetWidth;
+    card.classList.add('loaded');
+  }
 
   try {
     const res = await fetch(WORKER_URL, {
@@ -692,9 +733,8 @@ function showTrivia(i) {
   setTimeout(() => {
     textEl.textContent = item.fact;
     textEl.style.opacity = '1';
-    textEl.style.transition = 'opacity .3s ease';
-    sourceEl.textContent = item.source || '';
-  }, 150);
+    if (sourceEl) sourceEl.textContent = item.source || '';
+  }, 200);
 }
 
 function refreshTrivia() {
@@ -785,14 +825,6 @@ function renderDashboard(d) {
   ).join('');
 
   // QoL cards — trivia card is slot 1 (static HTML), dynamic cards follow
-  // Trigger pulse animation restart by toggling class
-  const triviaCardEl = document.getElementById('trivia-card');
-  if (triviaCardEl) {
-    triviaCardEl.classList.remove('loaded');
-    void triviaCardEl.offsetWidth; // force reflow to restart animation
-    triviaCardEl.classList.add('loaded');
-  }
-
   const dynamicCards = (d.qualityOfLife || []).map(q => {
     const srcUrl = (q.sourceUrl || '').trim();
     const query  = q.searchQuery || (q.label + ' ' + d.location);
