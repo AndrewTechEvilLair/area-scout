@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v1.7 — Demographics Explorer</title>
+<title>AreaScout v2.0 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -141,7 +141,7 @@
   .d-pos { color: var(--accent2); }
   .d-neg { color: var(--danger); }
   .d-neu { color: var(--text3); }
-  .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); }
+  .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); min-height: 2.6em; display: flex; align-items: flex-end; }
   .stat-card:hover .stat-source { color: var(--accent); }
 
   /* ── Mid row ── */
@@ -191,7 +191,7 @@
   .qol-label  { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
   .qol-value  { font-size: 17px; font-weight: 600; line-height: 1.15; margin-bottom: 3px; }
   .qol-sub    { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
-  .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); }
+  .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); min-height: 2.6em; display: flex; align-items: flex-end; }
   .qol-card:hover .qol-source { color: var(--accent); }
 
   /* ── Insights ── */
@@ -277,12 +277,42 @@
   .wc-summer-avg  .weather-sub { color: #a05040; }
   .wc-summer-peak .weather-sub { color: #904030; }
 
+
+  /* ── Trivia card ── */
+  @keyframes trivia-pulse {
+    0%, 100% { border-color: var(--border); box-shadow: none; }
+    50%       { border-color: rgba(155,138,251,.6); box-shadow: 0 0 0 3px rgba(155,138,251,.12); }
+  }
+  .trivia-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 13px 14px; display: flex; align-items: stretch; gap: 11px;
+    transition: border-color var(--ease), background var(--ease);
+    cursor: pointer; position: relative;
+    animation: trivia-pulse 2.5s ease-in-out 1s 3;
+  }
+  .trivia-card:hover {
+    border-color: var(--accent); background: rgba(79,142,247,.04);
+    animation: none;
+  }
+  .trivia-card.loaded { animation: trivia-pulse 2.5s ease-in-out 0.5s 3; }
+  .trivia-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .trivia-card:hover .ext-badge { opacity: 1; }
+  .trivia-loading { opacity: .5; font-style: italic; }
+  .trivia-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-top: 2px; background: rgba(155,138,251,.13); }
+  .trivia-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .trivia-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
+  .trivia-text  { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 6px; flex: 1; }
+  .trivia-tap   { font-size: 10px; color: var(--text3); font-style: italic; margin-bottom: 4px; }
+  .trivia-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; min-height: 2.6em; display: flex; align-items: flex-end; transition: color var(--ease); }
+  .trivia-card:hover .trivia-source { color: var(--accent); }
+
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="brand-title">Area<span>Scout</span></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.0</div>
   <div class="search-wrap">
     <input type="text" id="loc-input" placeholder="City, State or State — e.g. Knoxville, TN" autocomplete="off" />
     <button id="search-btn" onclick="runSearch()">Explore →</button>
@@ -351,7 +381,19 @@
         <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="AndrewTech" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
       </div>
       </div>
-      <div class="qol-grid" id="qol-grid"></div>
+      <div class="qol-grid" id="qol-grid">
+        <!-- 10th slot: trivia card — static, populated by loadTrivia() -->
+        <div class="trivia-card" id="trivia-card" onclick="refreshTrivia()">
+          <div class="ext-badge">↺ tap for more</div>
+          <div class="trivia-icon">🎲</div>
+          <div class="trivia-info">
+            <div class="trivia-label">Did You Know?</div>
+            <div class="trivia-text" id="trivia-text"><span class="trivia-loading">Loading trivia...</span></div>
+            <div class="trivia-tap">Tap for another fact</div>
+            <div class="trivia-source" id="trivia-source"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="insights-card">
@@ -573,9 +615,12 @@ async function runSearch() {
 
 // ── Share location via URL param ──
 function shareLocation() {
-  const loc = document.getElementById('loc-name').textContent;
+  const loc = document.getElementById('loc-name').textContent.trim();
   if (!loc) return;
-  const url = window.location.origin + window.location.pathname + '?loc=' + encodeURIComponent(loc);
+  // Build clean shareable URL — use the current input value which is already the
+  // normalized location string, avoiding any double-encoding issues
+  const cleanLoc = document.getElementById('loc-input').value.trim() || loc;
+  const url = window.location.origin + window.location.pathname + '?loc=' + encodeURIComponent(cleanLoc);
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('share-btn');
     btn.textContent = '✓ Link copied!';
@@ -590,14 +635,73 @@ function shareLocation() {
 }
 
 // ── Auto-load from URL param on page load ──
-window.addEventListener('DOMContentLoaded', () => {
+// Use window.onload (not DOMContentLoaded) so Chart.js and all
+// external scripts are fully ready before we trigger a search
+window.addEventListener('load', () => {
   const params = new URLSearchParams(window.location.search);
   const loc = params.get('loc');
   if (loc) {
-    document.getElementById('loc-input').value = loc;
-    runSearch();
+    const input = document.getElementById('loc-input');
+    // URLSearchParams handles decoding automatically — no manual decodeURIComponent needed
+    input.value = loc;
+    // Small delay lets the page fully paint before search kicks off
+    setTimeout(() => runSearch(), 100);
   }
 });
+
+// ── Trivia card ──
+let triviaLocation = '';
+let triviaList = [];
+let triviaIndex = 0;
+
+async function loadTrivia(loc) {
+  triviaLocation = loc;
+  triviaList = [];
+  triviaIndex = 0;
+  const textEl   = document.getElementById('trivia-text');
+  const sourceEl = document.getElementById('trivia-source');
+  if (!textEl) return;
+  textEl.innerHTML = '<span class="trivia-loading">Loading trivia...</span>';
+  sourceEl.textContent = '';
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: loc, mode: 'trivia' })
+    });
+    if (!res.ok) throw new Error('trivia fetch failed');
+    const data = await res.json();
+    if (data.trivia && data.trivia.length) {
+      triviaList = data.trivia;
+      showTrivia(0);
+    } else {
+      textEl.textContent = 'No trivia found for this location.';
+    }
+  } catch {
+    textEl.textContent = 'Could not load trivia right now.';
+  }
+}
+
+function showTrivia(i) {
+  const item     = triviaList[i];
+  const textEl   = document.getElementById('trivia-text');
+  const sourceEl = document.getElementById('trivia-source');
+  if (!item || !textEl) return;
+  textEl.style.opacity = '0';
+  setTimeout(() => {
+    textEl.textContent = item.fact;
+    textEl.style.opacity = '1';
+    textEl.style.transition = 'opacity .3s ease';
+    sourceEl.textContent = item.source || '';
+  }, 150);
+}
+
+function refreshTrivia() {
+  if (!triviaList.length) return;
+  triviaIndex = (triviaIndex + 1) % triviaList.length;
+  showTrivia(triviaIndex);
+}
 
 // ── Render dashboard ──
 function renderDashboard(d) {
@@ -680,8 +784,16 @@ function renderDashboard(d) {
     `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
   ).join('');
 
-  // QoL cards
-  document.getElementById('qol-grid').innerHTML = (d.qualityOfLife || []).map(q => {
+  // QoL cards — trivia card is slot 1 (static HTML), dynamic cards follow
+  // Trigger pulse animation restart by toggling class
+  const triviaCardEl = document.getElementById('trivia-card');
+  if (triviaCardEl) {
+    triviaCardEl.classList.remove('loaded');
+    void triviaCardEl.offsetWidth; // force reflow to restart animation
+    triviaCardEl.classList.add('loaded');
+  }
+
+  const dynamicCards = (d.qualityOfLife || []).map(q => {
     const srcUrl = (q.sourceUrl || '').trim();
     const query  = q.searchQuery || (q.label + ' ' + d.location);
     const badge  = srcUrl ? '↗ source' : '↗ search';
@@ -702,8 +814,17 @@ function renderDashboard(d) {
     `<div class="insight-item"><span class="insight-bullet">›</span>${i}</div>`
   ).join('');
 
+  // Insert dynamic QoL cards AFTER the trivia card (which is slot 1 — static HTML)
+  const qolGrid = document.getElementById('qol-grid');
+  // Remove any previously rendered dynamic cards before re-inserting
+  qolGrid.querySelectorAll('.qol-card').forEach(el => el.remove());
+  qolGrid.insertAdjacentHTML('beforeend', dynamicCards);
+
   document.getElementById('dashboard').classList.add('visible');
   document.getElementById('placeholder').style.display = 'none';
+
+  // Load trivia for this location (async, non-blocking)
+  loadTrivia(d.location);
 }
 </script>
 </body>
