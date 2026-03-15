@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v1.6 — Demographics Explorer</title>
+<title>AreaScout v1.7 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -244,6 +244,39 @@
     .loc-link { display: none; }
   }
 
+
+  /* ── Weather cards ── */
+  .weather-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 0; }
+  @media (max-width: 700px) { .weather-row { grid-template-columns: repeat(2, 1fr); } }
+
+  .weather-card {
+    border-radius: var(--r); padding: 11px 13px;
+    cursor: default; position: relative; display: flex; flex-direction: column;
+    border: 1px solid transparent;
+  }
+  .weather-card.wc-winter-avg  { background: #1a2a3a; border-color: #2a4a6a; }
+  .weather-card.wc-winter-low  { background: #121e2e; border-color: #1e3650; }
+  .weather-card.wc-summer-avg  { background: #3a1a10; border-color: #6a2e18; }
+  .weather-card.wc-summer-peak { background: #2e1008; border-color: #5a2010; }
+
+  .weather-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .wc-winter-avg  .weather-label { color: #5b9bd5; }
+  .wc-winter-low  .weather-label { color: #4a7fb5; }
+  .wc-summer-avg  .weather-label { color: #e07050; }
+  .wc-summer-peak .weather-label { color: #c05030; }
+
+  .weather-value { font-size: 22px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .wc-winter-avg  .weather-value { color: #7ab4e8; }
+  .wc-winter-low  .weather-value { color: #5a8ec8; }
+  .wc-summer-avg  .weather-value { color: #f08060; }
+  .wc-summer-peak .weather-value { color: #d06040; }
+
+  .weather-sub { font-size: 11px; line-height: 1.3; }
+  .wc-winter-avg  .weather-sub { color: #4a7aaa; }
+  .wc-winter-low  .weather-sub { color: #3a6090; }
+  .wc-summer-avg  .weather-sub { color: #a05040; }
+  .wc-summer-peak .weather-sub { color: #904030; }
+
 </style>
 </head>
 <body>
@@ -297,6 +330,9 @@
       <button class="action-btn" id="share-btn" onclick="shareLocation()">🔗 Share this report</button>
       <button class="action-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
     </div>
+
+    <div class="section-label">Climate</div>
+    <div class="weather-row" id="weather-row"></div>
 
     <div class="section-label">Demographics &amp; Economy</div>
     <div class="stat-grid" id="stat-grid"></div>
@@ -586,6 +622,19 @@ function renderDashboard(d) {
       })
       .catch(function() {});
   })(d.location);
+
+  // ── Weather cards ──
+  const wx = d.weather || {};
+  document.getElementById('weather-row').innerHTML = [
+    { cls: 'wc-winter-avg',  label: 'Avg Winter Temp',    value: wx.avgWinterTemp  || '--', sub: wx.avgWinterMonth  || '' },
+    { cls: 'wc-winter-low',  label: 'Coldest Winter Low', value: wx.lowWinterTemp  || '--', sub: wx.lowWinterMonth  || '' },
+    { cls: 'wc-summer-avg',  label: 'Avg Summer High',    value: wx.avgSummerTemp  || '--', sub: wx.avgSummerMonth  || '' },
+    { cls: 'wc-summer-peak', label: 'Peak Summer Temp',   value: wx.peakSummerTemp || '--', sub: wx.peakSummerMonth || '' },
+  ].map(w => `<div class="weather-card ${w.cls}">
+    <div class="weather-label">${w.label}</div>
+    <div class="weather-value">${w.value}</div>
+    <div class="weather-sub">${w.sub}</div>
+  </div>`).join('');
 
   // Stat cards
   document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
