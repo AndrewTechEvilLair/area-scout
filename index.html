@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -77,6 +79,8 @@
   .ac-item .ac-pin  { font-size: 11px; opacity: .45; flex-shrink: 0; }
   .ac-item .ac-main { font-weight: 500; color: var(--text); flex: 1; }
   .ac-item .ac-sub  { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  /* Address-type badge in autocomplete */
+  .ac-type { font-size: 10px; color: var(--text3); background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
 
   /* ── Quick pills ── */
   .quick-row {
@@ -194,6 +198,24 @@
   .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); min-height: 2.6em; display: flex; align-items: flex-end; }
   .qol-card:hover .qol-source { color: var(--accent); }
 
+  /* ── In the Area QoL card (static, replaces ice cream) ── */
+  .inarea-card {
+    background: var(--card); border: 1px solid var(--border2); border-radius: var(--r);
+    padding: 13px 14px; display: flex; align-items: center; gap: 11px;
+    cursor: pointer; position: relative;
+    transition: border-color var(--ease), background var(--ease);
+  }
+  .inarea-card:hover { border-color: var(--accent); background: rgba(79,142,247,.06); }
+  .inarea-icon {
+    width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    background: rgba(79,142,247,.15);
+  }
+  .inarea-info { flex: 1; min-width: 0; }
+  .inarea-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
+  .inarea-value { font-size: 14px; font-weight: 600; color: var(--accent); line-height: 1.2; margin-bottom: 3px; }
+  .inarea-sub { font-size: 11px; color: var(--text2); line-height: 1.35; }
+
   /* ── Insights ── */
   .insights-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; margin-top: 14px; border-left: 3px solid var(--accent); }
   .insights-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 12px; }
@@ -237,13 +259,12 @@
 
   /* ── Print styles ── */
   @media print {
-    .topbar, .quick-row, .action-row, .bmc-wrap, .transparency-note { display: none !important; }
+    .topbar, .quick-row, .action-row, .bmc-wrap, .transparency-note, .inarea-card { display: none !important; }
     .dashboard { display: block !important; }
     body { background: #fff; color: #000; font-size: 12px; }
     .stat-card, .qol-card, .chart-card, .insights-card { border: 1px solid #ddd; break-inside: avoid; }
     .loc-link { display: none; }
   }
-
 
   /* ── Weather cards ── */
   .weather-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 0; }
@@ -276,7 +297,6 @@
   .wc-winter-low  .weather-sub { color: #3a6090; }
   .wc-summer-avg  .weather-sub { color: #a05040; }
   .wc-summer-peak .weather-sub { color: #904030; }
-
 
   /* ── Trivia full-width card ── */
   @keyframes trivia-pulse {
@@ -333,15 +353,155 @@
   }
   .trivia-full:hover .trivia-hint { opacity: 1; }
 
+  /* ══════════════════════════════════════════
+     IN THE AREA MODAL
+  ══════════════════════════════════════════ */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal-sheet {
+    background: var(--bg2);
+    border-radius: 18px 18px 0 0;
+    border: 1px solid var(--border2); border-bottom: none;
+    width: 100%; max-width: 1080px;
+    height: 88vh;
+    display: flex; flex-direction: column;
+    transform: translateY(24px);
+    transition: transform .3s cubic-bezier(.22,1,.36,1);
+    overflow: hidden;
+  }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+
+  .modal-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 12px auto 0; flex-shrink: 0; }
+
+  .modal-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 12px 20px 10px; flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-family: var(--font-d); font-size: 1.25rem; color: var(--text); letter-spacing: -.01em; }
+  .modal-subtitle { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .modal-close {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--border2); background: var(--bg3);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all var(--ease); margin-top: 2px;
+  }
+  .modal-close:hover { border-color: var(--accent); background: rgba(79,142,247,.1); }
+  .modal-close svg { width: 12px; height: 12px; stroke: var(--text2); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Map category pills */
+  .map-pill-wrap { position: relative; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+  .map-pill-wrap::after {
+    content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 36px;
+    background: linear-gradient(to right, transparent, var(--bg2) 85%);
+    pointer-events: none; z-index: 1;
+  }
+  .map-pill-bar { display: flex; gap: 7px; padding: 9px 16px; overflow-x: auto; scrollbar-width: none; }
+  .map-pill-bar::-webkit-scrollbar { display: none; }
+
+  .map-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: 30px; min-height: 34px;
+    font-size: 12px; font-weight: 600; font-family: var(--font-b);
+    border: 1.5px solid var(--border2); background: var(--bg3);
+    color: var(--text2); cursor: pointer;
+    transition: all .18s; white-space: nowrap; flex-shrink: 0;
+  }
+  .map-pill:hover:not(.active) { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
+
+  /* Eviction flash */
+  @keyframes pillEvict {
+    0%   { opacity: 1; transform: scale(1); }
+    30%  { opacity: .4; transform: scale(.93); background: rgba(247,162,79,.18); border-color: #f7a24f; }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .map-pill.evicting { animation: pillEvict .35s ease forwards; }
+
+  .map-pill[data-cat="coffee"].active      { background: rgba(184,118,58,.15);  border-color: #B8763A; color: #e0a060; }
+  .map-pill[data-cat="icecream"].active    { background: rgba(192,96,138,.15);  border-color: #C0608A; color: #e080b0; }
+  .map-pill[data-cat="gas"].active         { background: rgba(58,101,184,.15);  border-color: #3A65B8; color: #7aa0e0; }
+  .map-pill[data-cat="grocery"].active     { background: rgba(46,158,96,.15);   border-color: #2E9E60; color: #60cc90; }
+  .map-pill[data-cat="restaurants"].active { background: rgba(192,80,48,.15);   border-color: #C05030; color: #e08060; }
+  .map-pill[data-cat="schools"].active     { background: rgba(112,82,184,.15);  border-color: #7052B8; color: #a080e0; }
+  .map-pill[data-cat="wholesale"].active   { background: rgba(106,106,74,.15);  border-color: #6A6A4A; color: #a0a070; }
+
+  .map-pill .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .45; flex-shrink: 0; transition: opacity .15s; }
+  .map-pill.active .pill-dot { opacity: 1; }
+
+  /* Slim loading bar under pills */
+  .map-loading-bar { height: 3px; background: transparent; flex-shrink: 0; position: relative; overflow: hidden; }
+  @keyframes loadSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  .map-loading-bar.active::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: loadSlide .9s ease-in-out infinite;
+  }
+
+  /* No-results banner */
+  #inarea-no-results {
+    display: none; margin: 0; padding: 8px 16px 8px 13px;
+    background: rgba(247,162,79,.08);
+    border-bottom: 1px solid rgba(247,162,79,.25);
+    border-left: 3px solid rgba(247,162,79,.6);
+    font-size: 12px; color: #c08040; font-weight: 500;
+    flex-shrink: 0; align-items: center; gap: 8px;
+  }
+  #inarea-no-results.show { display: flex; }
+  #inarea-no-results svg { width: 13px; height: 13px; stroke: #c08040; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  /* Map */
+  #inarea-map { flex: 1; min-height: 0; }
+
+  /* Map empty state */
+  .map-empty-state {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 9px; pointer-events: none;
+  }
+  .map-empty-icon { font-size: 28px; opacity: .2; }
+  .map-empty-text { font-size: 13px; color: var(--text3); font-weight: 500; }
+
+  /* Map legend — bottom-right, clear of zoom controls */
+  .map-legend {
+    position: absolute; bottom: 28px; right: 12px; z-index: 10;
+    background: rgba(22,24,32,.92); border: 1px solid var(--border2);
+    border-radius: 9px; padding: 7px 11px; font-size: 11px;
+    display: flex; flex-direction: column; gap: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+  }
+  .map-legend-row { display: flex; align-items: center; gap: 6px; color: var(--text2); font-weight: 500; }
+  .map-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Leaflet popup dark theme */
+  .leaflet-popup-content-wrapper { border-radius: 10px !important; background: #1d1f26 !important; box-shadow: 0 4px 18px rgba(0,0,0,.5) !important; border: 1px solid rgba(255,255,255,.1) !important; }
+  .leaflet-popup-tip { background: #1d1f26 !important; }
+  .leaflet-popup-content { font-family: var(--font-b) !important; font-size: 13px !important; color: var(--text) !important; margin: 10px 14px !important; }
+  .popup-name { font-weight: 600; margin-bottom: 3px; font-size: 13.5px; color: var(--text); }
+  .popup-dist { font-size: 11.5px; color: var(--text3); margin-bottom: 5px; }
+  .popup-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--accent); font-size: 12px; text-decoration: none; font-weight: 600;
+    padding: 4px 9px; background: rgba(79,142,247,.12); border-radius: 6px;
+    border: 1px solid rgba(79,142,247,.2); transition: all .15s;
+  }
+  .popup-link:hover { background: rgba(79,142,247,.22); }
+  .popup-link svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="brand-title">Area<span>Scout</span></div>
-  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.0</div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.1</div>
   <div class="search-wrap">
-    <input type="text" id="loc-input" placeholder="City, State or State — e.g. Knoxville, TN" autocomplete="off" />
+    <input type="text" id="loc-input" placeholder="City, State or full address — e.g. Knoxville, TN" autocomplete="off" />
     <button id="search-btn" onclick="runSearch()">Explore →</button>
     <div class="ac-list" id="ac-list"></div>
   </div>
@@ -416,18 +576,22 @@
     <div class="section-label">Employment &amp; Quality of Life</div>
     <div class="mid-row">
       <div style="display:flex;flex-direction:column;gap:10px;">
-      <div class="chart-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
-        <div class="ext-badge">↗ source</div>
-        <div class="chart-title">Employment by Sector</div>
-        <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
-        <div class="legend-row" id="legend-sec"></div>
-        <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
+        <div class="chart-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
+          <div class="ext-badge">↗ source</div>
+          <div class="chart-title">Employment by Sector</div>
+          <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
+          <div class="legend-row" id="legend-sec"></div>
+          <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
+        </div>
+        <div class="bmc-wrap">
+          <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="AndrewTech" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
+        </div>
       </div>
-      <div class="bmc-wrap">
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="AndrewTech" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
+
+      <div class="qol-grid" id="qol-grid">
+        <!-- Dynamic QoL cards injected here by renderDashboard() -->
+        <!-- "In the Area" card is always last, injected after dynamic cards -->
       </div>
-      </div>
-      <div class="qol-grid" id="qol-grid"></div>
     </div>
 
     <div class="insights-card">
@@ -444,6 +608,53 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     IN THE AREA MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="inAreaOverlay" onclick="handleModalOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">In the Area</div>
+        <div class="modal-subtitle" id="inarea-subtitle">20 mi radius</div>
+      </div>
+      <button class="modal-close" onclick="closeInAreaModal()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="map-pill-wrap">
+      <div class="map-pill-bar" id="map-pill-bar">
+        <button class="map-pill" data-cat="coffee"      onclick="toggleMapPill(this)"><span class="pill-dot"></span>☕ Coffee</button>
+        <button class="map-pill" data-cat="icecream"    onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍦 Ice Cream</button>
+        <button class="map-pill" data-cat="gas"         onclick="toggleMapPill(this)"><span class="pill-dot"></span>⛽ Gas</button>
+        <button class="map-pill" data-cat="grocery"     onclick="toggleMapPill(this)"><span class="pill-dot"></span>🛒 Grocery</button>
+        <button class="map-pill" data-cat="restaurants" onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍽️ Restaurants</button>
+        <button class="map-pill" data-cat="schools"     onclick="toggleMapPill(this)"><span class="pill-dot"></span>🏫 Schools</button>
+        <button class="map-pill" data-cat="wholesale"   onclick="toggleMapPill(this)"><span class="pill-dot"></span>🏬 Wholesale</button>
+      </div>
+    </div>
+
+    <div class="map-loading-bar" id="map-loading-bar"></div>
+
+    <div id="inarea-no-results">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="inarea-no-results-text"></span>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:0">
+      <div id="inarea-map"></div>
+      <div class="map-empty-state" id="map-empty-state">
+        <div class="map-empty-icon">🗺️</div>
+        <div class="map-empty-text">Select a category above to explore nearby places</div>
+      </div>
+      <div class="map-legend" id="map-legend" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const WORKER_URL = 'https://late-snow-cc74.lordbizness1234.workers.dev/';
 const SEC_COLORS = ['#4f8ef7','#38d9a9','#f7a24f','#f74f6b','#9b8afb','#5cbcf0','#6ee7b7'];
@@ -454,13 +665,32 @@ let acIndex     = -1;
 let acItems     = [];
 let msgInterval = null;
 
+// Tracks current search — full address for map, city/state for demographics
+let currentSearchFull     = ''; // exactly what user typed
+let currentSearchCityState= ''; // extracted city+state for demographics query
+let currentSearchIsAddress= false; // true when a full street address was entered
+
+// ── Smart address parser ──────────────────────────────────────────────────
+const STREET_WORDS = /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ln|lane|way|ct|court|pl|place|pkwy|parkway|cir|circle|hwy|highway|terr|terrace|trail|trl|run|loop|pass|path|row|sq|square)\b/i;
+
+function parseSearchInput(raw) {
+  const trimmed = raw.trim();
+  const isAddress = /^\d{1,5}\s+\S/.test(trimmed) && STREET_WORDS.test(trimmed);
+  if (!isAddress) {
+    return { full: trimmed, cityState: trimmed, isAddress: false };
+  }
+  // Extract "City, ST" from tail of address
+  const m = trimmed.match(/,\s*([^,]+,\s*[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?)\s*$/i);
+  const cityState = m ? m[1].replace(/\s*\d{5}(-\d{4})?$/, '').trim() : trimmed;
+  return { full: trimmed, cityState, isAddress: true };
+}
+
 // ── Funny loading messages ──
 const LOADING_MSGS = [
   loc => `Bribing the Census Bureau for ${loc} data...`,
   loc => `Asking someone's cousin who actually moved to ${loc}...`,
   loc => `Checking if ${loc} has enough coffee shops...`,
   loc => `Consulting the local Nextdoor drama for vibes...`,
-  loc => `Calculating ice cream shop to person ratio...`,
   loc => `Running ${loc} through the vibe check algorithm...`,
   loc => `Interrogating Zillow. They're being difficult...`,
   loc => `Cross-referencing with someone's mom who knows everything...`,
@@ -484,9 +714,9 @@ function stopFunnyMessages() {
   if (msgInterval) { clearInterval(msgInterval); msgInterval = null; }
 }
 
-// ── Autocomplete via Nominatim (free, no key needed) ──
-const acListEl  = document.getElementById('ac-list');
-const locInput  = document.getElementById('loc-input');
+// ── Autocomplete via Nominatim ────────────────────────────────────────────
+const acListEl = document.getElementById('ac-list');
+const locInput = document.getElementById('loc-input');
 
 locInput.addEventListener('input', () => {
   clearTimeout(acDebounce);
@@ -508,15 +738,18 @@ document.addEventListener('click', e => {
 
 async function fetchAc(q) {
   try {
+    // Include house/road types so full street addresses surface in autocomplete
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=us`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
     const data = await res.json();
 
-    // Keep only city/town/state/county level results
-    const keep = ['city','town','village','suburb','county','state','municipality','administrative'];
-    const filtered = data.filter(r => keep.includes(r.type) || keep.includes(r.addresstype) || keep.includes(r.class));
-
-    renderAc(filtered.slice(0, 5));
+    const cityTypes    = ['city','town','village','suburb','county','state','municipality','administrative'];
+    const addressTypes = ['house','road','residential','building'];
+    const filtered = data.filter(r =>
+      cityTypes.includes(r.type) || cityTypes.includes(r.addresstype) || cityTypes.includes(r.class) ||
+      addressTypes.includes(r.type) || addressTypes.includes(r.addresstype)
+    );
+    renderAc(filtered.slice(0, 6));
   } catch { closeAc(); }
 }
 
@@ -526,15 +759,20 @@ function renderAc(items) {
   if (!items.length) { closeAc(); return; }
 
   acListEl.innerHTML = items.map((item, i) => {
-    const addr  = item.address || {};
-    const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
-    const state = addr.state || '';
-    const main  = state ? `${city}, ${state}` : city;
-    const sub   = addr.county && addr.county !== city ? addr.county : '';
+    const addr    = item.address || {};
+    const isAddr  = ['house','road','residential','building'].includes(item.type) || ['house','road'].includes(item.addresstype);
+    const houseNo = addr.house_number || '';
+    const road    = addr.road || '';
+    const city    = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+    const state   = addr.state || '';
+    const main    = isAddr && road
+      ? `${houseNo ? houseNo + ' ' : ''}${road}, ${city}${state ? ', ' + state : ''}`
+      : (state ? `${city}, ${state}` : city);
+    const typeBadge = isAddr ? '<span class="ac-type">address</span>' : '';
     return `<div class="ac-item" data-i="${i}" onmousedown="selectAc(${i})">
       <span class="ac-pin">📍</span>
       <span class="ac-main">${main}</span>
-      ${sub ? `<span class="ac-sub">${sub}</span>` : ''}
+      ${typeBadge}
     </div>`;
   }).join('');
 
@@ -542,12 +780,17 @@ function renderAc(items) {
 }
 
 function selectAc(i) {
-  const item = acItems[i];
+  const item   = acItems[i];
   if (!item) return;
-  const addr  = item.address || {};
-  const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
-  const state = addr.state || '';
-  locInput.value = state ? `${city}, ${state}` : city;
+  const addr   = item.address || {};
+  const isAddr = ['house','road','residential','building'].includes(item.type) || ['house','road'].includes(item.addresstype);
+  const houseNo= addr.house_number || '';
+  const road   = addr.road || '';
+  const city   = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+  const state  = addr.state || '';
+  locInput.value = isAddr && road
+    ? `${houseNo ? houseNo + ' ' : ''}${road}, ${city}${state ? ', ' + state : ''}`
+    : (state ? `${city}, ${state}` : city);
   closeAc();
   runSearch();
 }
@@ -558,11 +801,16 @@ function moveAc(dir) {
   acIndex = Math.max(-1, Math.min(rows.length - 1, acIndex + dir));
   rows.forEach((r, i) => r.classList.toggle('active', i === acIndex));
   if (acIndex >= 0) {
-    const item  = acItems[acIndex];
-    const addr  = item.address || {};
-    const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
-    const state = addr.state || '';
-    locInput.value = state ? `${city}, ${state}` : city;
+    const item   = acItems[acIndex];
+    const addr   = item.address || {};
+    const isAddr = ['house','road','residential','building'].includes(item.type) || ['house','road'].includes(item.addresstype);
+    const houseNo= addr.house_number || '';
+    const road   = addr.road || '';
+    const city   = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+    const state  = addr.state || '';
+    locInput.value = isAddr && road
+      ? `${houseNo ? houseNo + ' ' : ''}${road}, ${city}${state ? ', ' + state : ''}`
+      : (state ? `${city}, ${state}` : city);
   }
 }
 
@@ -583,36 +831,47 @@ function openLink(sourceUrl, searchQuery) {
   window.open(url, '_blank', 'noopener');
 }
 
-// ── Main search ──
+// ── Main search ──────────────────────────────────────────────────────────
 async function runSearch() {
-  const loc  = locInput.value.trim();
+  const raw  = locInput.value.trim();
   const btn  = document.getElementById('search-btn');
   const bar  = document.getElementById('status-bar');
   const dash = document.getElementById('dashboard');
   const ph   = document.getElementById('placeholder');
 
-  if (!loc) { alert('Please enter a city, state, or state name.'); return; }
+  if (!raw) { alert('Please enter a city, state, or address.'); return; }
+
+  // Parse input — full address vs city/state
+  const parsed = parseSearchInput(raw);
+  currentSearchFull      = parsed.full;
+  currentSearchCityState = parsed.cityState;
+  currentSearchIsAddress = parsed.isAddress;
+
+  // Demographics query always uses city/state scope
+  const loc = currentSearchCityState;
 
   btn.disabled = true;
   dash.classList.remove('visible');
   ph.style.display = 'none';
 
-  // ── Browser sessionStorage cache ──
+  // Reset In the Area map state for new search
+  resetMapState();
+
+  // Browser sessionStorage cache — keyed by city/state (demographics data)
   const cacheKey = 'areascout_' + loc.toLowerCase().trim();
-  const cached = sessionStorage.getItem(cacheKey);
+  const cached   = sessionStorage.getItem(cacheKey);
   if (cached) {
     try {
       renderDashboard(JSON.parse(cached));
       bar.className = 'status';
       bar.innerHTML = '';
-      btn.disabled = false;
+      btn.disabled  = false;
       return;
     } catch {
       sessionStorage.removeItem(cacheKey);
     }
   }
 
-  // ── Start funny loading messages ──
   bar.className = 'status loading';
   startFunnyMessages(loc, bar);
 
@@ -649,11 +908,7 @@ async function runSearch() {
 
 // ── Share location via URL param ──
 function shareLocation() {
-  const loc = document.getElementById('loc-name').textContent.trim();
-  if (!loc) return;
-  // Build clean shareable URL — use the current input value which is already the
-  // normalized location string, avoiding any double-encoding issues
-  const cleanLoc = document.getElementById('loc-input').value.trim() || loc;
+  const cleanLoc = locInput.value.trim() || document.getElementById('loc-name').textContent.trim();
   const url = window.location.origin + window.location.pathname + '?loc=' + encodeURIComponent(cleanLoc);
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('share-btn');
@@ -663,47 +918,35 @@ function shareLocation() {
       btn.textContent = '🔗 Share this report';
       btn.classList.remove('copied');
     }, 2500);
-  }).catch(() => {
-    prompt('Copy this link:', url);
-  });
+  }).catch(() => { prompt('Copy this link:', url); });
 }
 
 // ── Auto-load from URL param on page load ──
-// Use window.onload (not DOMContentLoaded) so Chart.js and all
-// external scripts are fully ready before we trigger a search
 window.addEventListener('load', () => {
   const params = new URLSearchParams(window.location.search);
   const loc = params.get('loc');
   if (loc) {
-    const input = document.getElementById('loc-input');
-    // URLSearchParams handles decoding automatically — no manual decodeURIComponent needed
-    input.value = loc;
-    // Small delay lets the page fully paint before search kicks off
+    locInput.value = loc;
     setTimeout(() => runSearch(), 100);
   }
 });
 
-// ── Trivia card ──
+// ── Trivia ──
 let triviaLocation = '';
-let triviaList = [];
-let triviaIndex = 0;
+let triviaList     = [];
+let triviaIndex    = 0;
 
 async function loadTrivia(loc) {
   triviaLocation = loc;
-  triviaList = [];
-  triviaIndex = 0;
+  triviaList     = [];
+  triviaIndex    = 0;
   const textEl   = document.getElementById('trivia-text');
   const sourceEl = document.getElementById('trivia-source');
   const card     = document.getElementById('trivia-card');
   if (!textEl) return;
   textEl.innerHTML = '<span class="trivia-loading">Loading a fun fact...</span>';
   if (sourceEl) sourceEl.textContent = '';
-  // Restart pulse animation
-  if (card) {
-    card.classList.remove('loaded');
-    void card.offsetWidth;
-    card.classList.add('loaded');
-  }
+  if (card) { card.classList.remove('loaded'); void card.offsetWidth; card.classList.add('loaded'); }
 
   try {
     const res = await fetch(WORKER_URL, {
@@ -713,12 +956,8 @@ async function loadTrivia(loc) {
     });
     if (!res.ok) throw new Error('trivia fetch failed');
     const data = await res.json();
-    if (data.trivia && data.trivia.length) {
-      triviaList = data.trivia;
-      showTrivia(0);
-    } else {
-      textEl.textContent = 'No trivia found for this location.';
-    }
+    if (data.trivia && data.trivia.length) { triviaList = data.trivia; showTrivia(0); }
+    else textEl.textContent = 'No trivia found for this location.';
   } catch {
     textEl.textContent = 'Could not load trivia right now.';
   }
@@ -746,34 +985,31 @@ function refreshTrivia() {
 // ── Render dashboard ──
 function renderDashboard(d) {
   document.getElementById('loc-name').textContent = d.location;
-  document.getElementById('loc-type').textContent  = d.locationType;
-  document.getElementById('loc-year').textContent  = d.dataYear;
+  document.getElementById('loc-type').textContent = d.locationType;
+  document.getElementById('loc-year').textContent = d.dataYear;
 
-  // ── Map link (always shown) ──
   const mapUrl = 'https://www.google.com/maps/search/' + encodeURIComponent(d.location);
   document.getElementById('loc-links').innerHTML =
     `<a class="loc-link" href="${mapUrl}" target="_blank" rel="noopener">🗺 Map</a>`;
 
-  // ── Wikipedia — only show link if article actually exists ──
   (function(loc) {
     const wikiTitle = loc.replace(/,\s*/g, ',_').replace(/\s+/g, '_');
     fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(wikiTitle))
-      .then(function(r) {
+      .then(r => {
         if (r.ok) {
           const el = document.getElementById('loc-links');
           if (el) el.innerHTML += '<a class="loc-link" href="https://en.wikipedia.org/wiki/' + encodeURIComponent(wikiTitle) + '" target="_blank" rel="noopener">📖 Wiki</a>';
         }
-      })
-      .catch(function() {});
+      }).catch(() => {});
   })(d.location);
 
-  // ── Weather cards ──
+  // Weather
   const wx = d.weather || {};
   document.getElementById('weather-row').innerHTML = [
-    { cls: 'wc-winter-avg',  label: 'Avg Winter Temp',    value: wx.avgWinterTemp  || '--', sub: wx.avgWinterMonth  || '' },
-    { cls: 'wc-winter-low',  label: 'Coldest Winter Low', value: wx.lowWinterTemp  || '--', sub: wx.lowWinterMonth  || '' },
-    { cls: 'wc-summer-avg',  label: 'Avg Summer High',    value: wx.avgSummerTemp  || '--', sub: wx.avgSummerMonth  || '' },
-    { cls: 'wc-summer-peak', label: 'Peak Summer Temp',   value: wx.peakSummerTemp || '--', sub: wx.peakSummerMonth || '' },
+    { cls:'wc-winter-avg',  label:'Avg Winter Temp',    value: wx.avgWinterTemp  || '--', sub: wx.avgWinterMonth  || '' },
+    { cls:'wc-winter-low',  label:'Coldest Winter Low', value: wx.lowWinterTemp  || '--', sub: wx.lowWinterMonth  || '' },
+    { cls:'wc-summer-avg',  label:'Avg Summer High',    value: wx.avgSummerTemp  || '--', sub: wx.avgSummerMonth  || '' },
+    { cls:'wc-summer-peak', label:'Peak Summer Temp',   value: wx.peakSummerTemp || '--', sub: wx.peakSummerMonth || '' },
   ].map(w => `<div class="weather-card ${w.cls}">
     <div class="weather-label">${w.label}</div>
     <div class="weather-value">${w.value}</div>
@@ -790,9 +1026,8 @@ function renderDashboard(d) {
     }
     const srcUrl = (s.sourceUrl || '').trim();
     const query  = s.searchQuery || (s.label + ' ' + d.location);
-    const badge  = srcUrl ? '↗ source' : '↗ search';
     return `<div class="stat-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
-      <div class="ext-badge">${badge}</div>
+      <div class="ext-badge">${srcUrl ? '↗ source' : '↗ search'}</div>
       <div class="stat-label">${s.label}</div>
       <div class="stat-value">${s.value}</div>
       ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:8px"></div>'}
@@ -824,13 +1059,12 @@ function renderDashboard(d) {
     `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
   ).join('');
 
-  // QoL cards — trivia card is slot 1 (static HTML), dynamic cards follow
+  // QoL dynamic cards
   const dynamicCards = (d.qualityOfLife || []).map(q => {
     const srcUrl = (q.sourceUrl || '').trim();
     const query  = q.searchQuery || (q.label + ' ' + d.location);
-    const badge  = srcUrl ? '↗ source' : '↗ search';
     return `<div class="qol-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
-      <div class="ext-badge">${badge}</div>
+      <div class="ext-badge">${srcUrl ? '↗ source' : '↗ search'}</div>
       <div class="qol-icon ${q.iconClass}">${q.icon}</div>
       <div class="qol-info">
         <div class="qol-label">${q.label}</div>
@@ -841,22 +1075,335 @@ function renderDashboard(d) {
     </div>`;
   }).join('');
 
+  // "In the Area" card — always last in the QoL grid
+  const inAreaCard = `<div class="inarea-card" onclick="openInAreaModal()">
+    <div class="inarea-icon">🗺️</div>
+    <div class="inarea-info">
+      <div class="inarea-label">Explore Nearby</div>
+      <div class="inarea-value">In the Area →</div>
+      <div class="inarea-sub">Coffee, gas, grocery, schools &amp; more</div>
+    </div>
+  </div>`;
+
   // Insights
   document.getElementById('insights-list').innerHTML = (d.insights || []).map(i =>
     `<div class="insight-item"><span class="insight-bullet">›</span>${i}</div>`
   ).join('');
 
-  // Insert dynamic QoL cards AFTER the trivia card (which is slot 1 — static HTML)
   const qolGrid = document.getElementById('qol-grid');
-  // Remove any previously rendered dynamic cards before re-inserting
-  qolGrid.querySelectorAll('.qol-card').forEach(el => el.remove());
-  qolGrid.insertAdjacentHTML('beforeend', dynamicCards);
+  qolGrid.querySelectorAll('.qol-card, .inarea-card').forEach(el => el.remove());
+  qolGrid.insertAdjacentHTML('beforeend', dynamicCards + inAreaCard);
 
   document.getElementById('dashboard').classList.add('visible');
   document.getElementById('placeholder').style.display = 'none';
 
-  // Load trivia for this location (async, non-blocking)
   loadTrivia(d.location);
+}
+
+
+// ══════════════════════════════════════════════
+// IN THE AREA — MAP + CACHING
+// ══════════════════════════════════════════════
+
+const MAP_CAT_COLORS = {
+  coffee:      '#B8763A',
+  icecream:    '#C0608A',
+  gas:         '#3A65B8',
+  grocery:     '#2E9E60',
+  restaurants: '#C05030',
+  schools:     '#7052B8',
+  wholesale:   '#6A6A4A',
+};
+const MAP_CAT_LABELS = {
+  coffee:      'Coffee Shops',
+  icecream:    'Ice Cream',
+  gas:         'Gas Stations',
+  grocery:     'Grocery Stores',
+  restaurants: 'Restaurants',
+  schools:     'Schools',
+  wholesale:   'Wholesale',
+};
+const MAP_CAT_PROMPTS = {
+  coffee:      'espresso stands, coffee shops, and cafes (NOT gas stations or grocery stores that happen to sell coffee)',
+  icecream:    'ice cream shops and scoop shops that primarily serve ice cream (like Dairy Queen, Baskin-Robbins, Marble Slab, local creameries)',
+  gas:         'gas stations and fuel stations',
+  grocery:     'grocery stores and supermarkets',
+  restaurants: 'restaurants and dining establishments',
+  schools:     'elementary schools, middle schools, and high schools',
+  wholesale:   'wholesale club stores only: Costco, Sam\'s Club, and BJ\'s Wholesale Club',
+};
+
+// Two-layer cache — sessionStorage (instant) + Worker KV (30-day, via mode:'inarea')
+const INAREA_SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days ms
+
+function iaAddrSlug(addr) {
+  return addr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+function iaSessionKey(addr, cat) {
+  return `inarea::${iaAddrSlug(addr)}::${cat}`;
+}
+function iaReadSession(addr, cat) {
+  try {
+    const raw = sessionStorage.getItem(iaSessionKey(addr, cat));
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (Date.now() - entry.ts > INAREA_SESSION_TTL) { sessionStorage.removeItem(iaSessionKey(addr, cat)); return null; }
+    return entry;
+  } catch { return null; }
+}
+function iaWriteSession(addr, cat, data) {
+  try {
+    sessionStorage.setItem(iaSessionKey(addr, cat), JSON.stringify({ ...data, ts: Date.now() }));
+  } catch {}
+}
+
+async function iaGetPlaces(addr, cat) {
+  // Layer 1: sessionStorage
+  const cached = iaReadSession(addr, cat);
+  if (cached) { console.log(`[InArea] session hit: ${cat}`); return { ...cached, source: 'session' }; }
+
+  // Layer 2+3: Worker KV then Anthropic
+  console.log(`[InArea] worker fetch: ${cat}`);
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode:     'inarea',
+      location: addr,
+      category: cat,
+      prompt:   MAP_CAT_PROMPTS[cat],
+    }),
+  });
+  if (!res.ok) throw new Error(`Worker error ${res.status}`);
+  const data = await res.json();
+
+  // Only cache positive results
+  if (data.places && data.places.length > 0) {
+    iaWriteSession(addr, cat, {
+      places:         data.places,
+      nearestOutside: data.nearestOutside || null,
+      source:         data.cached ? 'kv' : 'api',
+    });
+  }
+  return {
+    places:         data.places || [],
+    nearestOutside: data.nearestOutside || null,
+    source:         data.cached ? 'kv' : 'api',
+  };
+}
+
+// Map state
+let iaMap         = null;
+let iaMapReady    = false;
+let iaLayers      = {};    // cat → L.layerGroup
+let iaActiveQueue = [];    // max 2
+let iaIsLoading   = false;
+const iaPlacesMap = {};    // cat → places array, cat+'_outside' → nearestOutside
+
+function iaInitMap(center) {
+  if (iaMapReady) return;
+  iaMapReady = true;
+  iaMap = L.map('inarea-map', { zoomControl: true, attributionControl: false }).setView(center, 11);
+  iaMap.zoomControl.setPosition('topright');
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(iaMap);
+
+  // Home pin
+  const homeHtml = `<div style="position:relative;width:28px;height:36px">
+    <svg viewBox="0 0 28 36" width="28" height="36" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))">
+      <path d="M14 1C7.37 1 2 6.37 2 13c0 9.25 12 22 12 22s12-12.75 12-22C26 6.37 20.63 1 14 1z" fill="#4f8ef7" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
+      <circle cx="14" cy="13" r="5" fill="rgba(255,255,255,.85)"/>
+    </svg>
+  </div>`;
+  const homeIcon = L.divIcon({ html: homeHtml, className: '', iconAnchor: [14, 36], iconSize: [28, 36] });
+  L.marker(center, { icon: homeIcon, zIndexOffset: 1000 }).addTo(iaMap)
+    .bindPopup(`<div class="popup-name">📍 ${currentSearchFull}</div>`);
+}
+
+function iaMakePinIcon(color) {
+  return L.divIcon({
+    html: `<div style="position:relative;width:22px;height:30px">
+      <svg viewBox="0 0 22 30" width="22" height="30" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))">
+        <path d="M11 1C5.48 1 1 5.48 1 11c0 7.75 10 18 10 18s10-10.25 10-18C21 5.48 16.52 1 11 1z" fill="${color}" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
+        <circle cx="11" cy="11" r="3.5" fill="rgba(255,255,255,.7)"/>
+      </svg>
+    </div>`,
+    className: '', iconAnchor: [11, 30], iconSize: [22, 30],
+  });
+}
+
+function iaDirectionsUrl(name) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentSearchFull)}&destination=${encodeURIComponent(name)}`;
+}
+
+function iaBuildLayer(cat, places) {
+  const layer = L.layerGroup();
+  places.forEach(p => {
+    L.marker([p.lat, p.lng], { icon: iaMakePinIcon(MAP_CAT_COLORS[cat]) })
+     .bindPopup(`<div class="popup-name">${p.name}</div>
+       <div class="popup-dist">~${p.miles} mi away</div>
+       <a class="popup-link" href="${iaDirectionsUrl(p.name)}" target="_blank">
+         <svg viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+         Directions
+       </a>`)
+     .addTo(layer);
+  });
+  return layer;
+}
+
+function iaFitToActive() {
+  const pts = [];
+  if (iaMap) pts.push(iaMap.getCenter());
+  iaActiveQueue.forEach(cat => (iaPlacesMap[cat] || []).forEach(p => pts.push([p.lat, p.lng])));
+  if (pts.length > 1) iaMap.fitBounds(L.latLngBounds(pts), { padding: [42, 42], maxZoom: 15 });
+  else if (iaMap) iaMap.setView(iaMap.getCenter(), 11);
+}
+
+function iaUpdateLegend() {
+  const el = document.getElementById('map-legend');
+  if (iaActiveQueue.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = iaActiveQueue.map(cat =>
+    `<div class="map-legend-row"><div class="map-legend-dot" style="background:${MAP_CAT_COLORS[cat]}"></div>${MAP_CAT_LABELS[cat]}</div>`
+  ).join('');
+}
+
+function iaUpdateNoResults() {
+  const banner = document.getElementById('inarea-no-results');
+  const text   = document.getElementById('inarea-no-results-text');
+  const empty  = iaActiveQueue.find(c => (iaPlacesMap[c] || []).length === 0);
+  if (empty) {
+    const info = iaPlacesMap[`${empty}_outside`];
+    text.textContent = info
+      ? `No ${MAP_CAT_LABELS[empty]} within 20 miles — nearest is ${info.name} (~${info.miles} mi ${info.direction})`
+      : `No ${MAP_CAT_LABELS[empty]} found within 20 miles.`;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function iaSetLoadingBar(on) {
+  document.getElementById('map-loading-bar').classList.toggle('active', on);
+}
+
+function iaEvictOldest() {
+  const oldest = iaActiveQueue.shift();
+  const oldBtn = document.querySelector(`.map-pill[data-cat="${oldest}"]`);
+  if (oldBtn) {
+    oldBtn.classList.add('evicting');
+    setTimeout(() => oldBtn.classList.remove('active', 'evicting'), 350);
+  }
+  if (iaLayers[oldest] && iaMap) iaMap.removeLayer(iaLayers[oldest]);
+  delete iaPlacesMap[oldest];
+  delete iaPlacesMap[`${oldest}_outside`];
+}
+
+async function toggleMapPill(btn) {
+  const cat = btn.dataset.cat;
+
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    iaActiveQueue = iaActiveQueue.filter(c => c !== cat);
+    if (iaLayers[cat] && iaMap) iaMap.removeLayer(iaLayers[cat]);
+    delete iaPlacesMap[cat];
+    delete iaPlacesMap[`${cat}_outside`];
+    iaUpdateLegend();
+    iaUpdateNoResults();
+    iaFitToActive();
+    if (iaActiveQueue.length === 0) document.getElementById('map-empty-state').style.display = 'flex';
+    return;
+  }
+
+  if (iaIsLoading) return;
+  if (iaActiveQueue.length >= 2) iaEvictOldest();
+
+  btn.classList.add('active');
+  iaActiveQueue.push(cat);
+  document.getElementById('map-empty-state').style.display = 'none';
+  iaIsLoading = true;
+  iaSetLoadingBar(true);
+
+  try {
+    // Use full address as map center key, city/state as fallback
+    const queryAddr = currentSearchFull || currentSearchCityState;
+    const { places, nearestOutside } = await iaGetPlaces(queryAddr, cat);
+
+    iaPlacesMap[cat] = places;
+    if (nearestOutside) iaPlacesMap[`${cat}_outside`] = nearestOutside;
+
+    if (places.length > 0) {
+      if (!iaLayers[cat]) iaLayers[cat] = iaBuildLayer(cat, places);
+      iaLayers[cat].addTo(iaMap);
+    }
+
+    iaUpdateLegend();
+    iaUpdateNoResults();
+    iaFitToActive();
+  } catch (err) {
+    console.error('[InArea]', err);
+    btn.classList.remove('active');
+    iaActiveQueue = iaActiveQueue.filter(c => c !== cat);
+    document.getElementById('inarea-no-results-text').textContent = 'Could not load results — please try again.';
+    document.getElementById('inarea-no-results').classList.add('show');
+  } finally {
+    iaSetLoadingBar(false);
+    iaIsLoading = false;
+  }
+}
+
+async function openInAreaModal() {
+  const displayLoc = currentSearchFull || currentSearchCityState;
+  document.getElementById('inarea-subtitle').textContent = `${displayLoc} · 20 mi radius`;
+  document.getElementById('inAreaOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  setTimeout(async () => {
+    if (!iaMapReady) {
+      let center = [39.8283, -98.5795]; // US center fallback
+      // Geocode: try full address first (street-level precision), fall back to city/state
+      const queries = currentSearchIsAddress
+        ? [currentSearchFull, currentSearchCityState]
+        : [currentSearchCityState];
+      for (const q of queries) {
+        try {
+          const geo = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+            { headers: { 'Accept-Language': 'en-US,en' } }
+          );
+          const gd = await geo.json();
+          if (gd.length > 0) { center = [parseFloat(gd[0].lat), parseFloat(gd[0].lon)]; break; }
+        } catch {}
+      }
+      iaInitMap(center);
+    }
+    iaMap.invalidateSize();
+  }, 330);
+}
+
+function closeInAreaModal() {
+  document.getElementById('inAreaOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handleModalOverlayClick(e) {
+  if (e.target === document.getElementById('inAreaOverlay')) closeInAreaModal();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInAreaModal(); });
+
+function resetMapState() {
+  closeInAreaModal();
+  document.querySelectorAll('.map-pill.active').forEach(p => p.classList.remove('active'));
+  iaActiveQueue = [];
+  Object.keys(iaPlacesMap).forEach(k => delete iaPlacesMap[k]);
+  Object.keys(iaLayers).forEach(k => delete iaLayers[k]);
+  if (iaMap) { iaMap.remove(); iaMap = null; iaMapReady = false; }
+  const emEl = document.getElementById('map-empty-state');
+  if (emEl) emEl.style.display = 'flex';
+  const noRes = document.getElementById('inarea-no-results');
+  if (noRes) noRes.classList.remove('show');
+  const leg = document.getElementById('map-legend');
+  if (leg) leg.style.display = 'none';
 }
 </script>
 </body>
