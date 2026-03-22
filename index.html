@@ -555,6 +555,7 @@
     <div class="action-row">
       <button class="action-btn" id="share-btn" onclick="shareLocation()">🔗 Share this report</button>
       <button class="action-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="action-btn" id="inarea-btn" onclick="openInAreaModal()">🗺️ In the Area</button>
     </div>
 
     <div class="section-label">Climate</div>
@@ -637,6 +638,7 @@
     <div class="map-pill-wrap">
       <div class="map-pill-bar" id="map-pill-bar">
         <button class="map-pill" data-cat="coffee"      onclick="toggleMapPill(this)"><span class="pill-dot"></span>☕ Coffee</button>
+        <button class="map-pill" data-cat="icecream"    onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍦 Ice Cream</button>
         <button class="map-pill" data-cat="gas"         onclick="toggleMapPill(this)"><span class="pill-dot"></span>⛽ Gas</button>
         <button class="map-pill" data-cat="grocery"     onclick="toggleMapPill(this)"><span class="pill-dot"></span>🛒 Grocery</button>
         <button class="map-pill" data-cat="restaurants" onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍽️ Restaurants</button>
@@ -1084,7 +1086,7 @@ function renderDashboard(d) {
     </div>`;
   }).join('');
 
-  // "In the Area" card — always last in the QoL grid
+  // "In the Area" button — matches action-btn style, sits below QoL grid
   const inAreaCard = `<div class="inarea-card" onclick="openInAreaModal()">
     <div class="inarea-icon">🗺️</div>
     <div class="inarea-info">
@@ -1100,8 +1102,8 @@ function renderDashboard(d) {
   ).join('');
 
   const qolGrid = document.getElementById('qol-grid');
-  qolGrid.querySelectorAll('.qol-card, .inarea-card').forEach(el => el.remove());
-  qolGrid.insertAdjacentHTML('beforeend', dynamicCards + inAreaCard);
+  qolGrid.querySelectorAll('.qol-card').forEach(el => el.remove());
+  qolGrid.insertAdjacentHTML('beforeend', dynamicCards);
 
   document.getElementById('dashboard').classList.add('visible');
   document.getElementById('placeholder').style.display = 'none';
@@ -1398,10 +1400,12 @@ async function toggleMapPill(btn) {
     iaUpdateNoResults();
     iaFitToActive();
   } catch (err) {
+    // Network-level error only — worker now returns graceful empty on API issues
     console.error('[InArea]', err);
+    // Deactivate the pill silently and show no-results banner
     btn.classList.remove('active');
     iaActiveQueue = iaActiveQueue.filter(c => c !== cat);
-    document.getElementById('inarea-no-results-text').textContent = 'Could not load results — please try again.';
+    document.getElementById('inarea-no-results-text').textContent = `Couldn't reach the server — check connection and try again.`;
     document.getElementById('inarea-no-results').classList.add('show');
     iaRestorePills();
   } finally {
