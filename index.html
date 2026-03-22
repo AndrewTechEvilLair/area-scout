@@ -362,6 +362,7 @@
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: flex; align-items: flex-end; justify-content: center;
     opacity: 0; pointer-events: none; transition: opacity .22s ease;
+    height: 100%; height: 100dvh;
   }
   .modal-overlay.open { opacity: 1; pointer-events: all; }
 
@@ -370,7 +371,8 @@
     border-radius: 18px 18px 0 0;
     border: 1px solid var(--border2); border-bottom: none;
     width: 100%; max-width: 1080px;
-    height: 88vh;
+    height: 92vh; height: 92dvh;
+    max-height: 92vh; max-height: 92dvh;
     display: flex; flex-direction: column;
     transform: translateY(24px);
     transition: transform .3s cubic-bezier(.22,1,.36,1);
@@ -435,6 +437,13 @@
   .map-pill .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .45; flex-shrink: 0; transition: opacity .15s; }
   .map-pill.active .pill-dot { opacity: 1; }
 
+  /* Greyed-out state while any category is loading */
+  .map-pill.dimmed {
+    opacity: .35;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
   /* Slim loading bar under pills */
   .map-loading-bar { height: 3px; background: transparent; flex-shrink: 0; position: relative; overflow: hidden; }
   @keyframes loadSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
@@ -456,8 +465,8 @@
   #inarea-no-results.show { display: flex; }
   #inarea-no-results svg { width: 13px; height: 13px; stroke: #c08040; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-  /* Map */
-  #inarea-map { flex: 1; min-height: 0; }
+  /* Map — always rendered, fills remaining space */
+  #inarea-map { flex: 1; min-height: 0; width: 100%; display: block; }
 
   /* Map empty state */
   .map-empty-state {
@@ -499,7 +508,7 @@
 
 <div class="topbar">
   <div class="brand-title">Area<span>Scout</span></div>
-  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.1</div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.2</div>
   <div class="search-wrap">
     <input type="text" id="loc-input" placeholder="City, State or full address — e.g. Knoxville, TN" autocomplete="off" />
     <button id="search-btn" onclick="runSearch()">Explore →</button>
@@ -628,7 +637,6 @@
     <div class="map-pill-wrap">
       <div class="map-pill-bar" id="map-pill-bar">
         <button class="map-pill" data-cat="coffee"      onclick="toggleMapPill(this)"><span class="pill-dot"></span>☕ Coffee</button>
-        <button class="map-pill" data-cat="icecream"    onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍦 Ice Cream</button>
         <button class="map-pill" data-cat="gas"         onclick="toggleMapPill(this)"><span class="pill-dot"></span>⛽ Gas</button>
         <button class="map-pill" data-cat="grocery"     onclick="toggleMapPill(this)"><span class="pill-dot"></span>🛒 Grocery</button>
         <button class="map-pill" data-cat="restaurants" onclick="toggleMapPill(this)"><span class="pill-dot"></span>🍽️ Restaurants</button>
@@ -638,14 +646,15 @@
     </div>
 
     <div class="map-loading-bar" id="map-loading-bar"></div>
+    <div id="map-status-msg" style="display:none;padding:5px 16px 3px;font-size:11px;color:var(--text3);font-style:italic;flex-shrink:0;"></div>
 
     <div id="inarea-no-results">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span id="inarea-no-results-text"></span>
     </div>
 
-    <div style="position:relative;flex:1;min-height:0">
-      <div id="inarea-map"></div>
+    <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;">
+      <div id="inarea-map" style="flex:1;min-height:0;"></div>
       <div class="map-empty-state" id="map-empty-state">
         <div class="map-empty-icon">🗺️</div>
         <div class="map-empty-text">Select a category above to explore nearby places</div>
@@ -1197,8 +1206,41 @@ let iaMap         = null;
 let iaMapReady    = false;
 let iaLayers      = {};    // cat → L.layerGroup
 let iaActiveQueue = [];    // max 2
-let iaIsLoading   = false;
-const iaPlacesMap = {};    // cat → places array, cat+'_outside' → nearestOutside
+let iaLoadingCats = new Set(); // per-category loading tracker (replaces global lock)
+const iaPlacesMap = {};    // cat → places[], cat+'_outside' → nearestOutside
+
+// ── Funny map loading messages ──
+const MAP_LOADING_MSGS = [
+  cat => `Bribing local ${cat} owners for their coordinates...`,
+  cat => `Asking a very opinionated Yelp reviewer about ${cat}...`,
+  cat => `Checking if any ${cat} spots survived the algorithm...`,
+  cat => `Negotiating with Google Maps' cousin...`,
+  cat => `Consulting the ancient GPS spirits...`,
+  cat => `Cross-referencing with someone's mom who knows the area...`,
+  cat => `Pinging satellites. One of them is distracted...`,
+  cat => `Running a 20-mile vibe check...`,
+  cat => `Asking the locals (they lied, but we checked anyway)...`,
+  cat => `Triangulating via very confident guesswork...`,
+];
+let mapMsgInterval = null;
+
+function startMapMsg(cat) {
+  const el = document.getElementById('map-status-msg');
+  if (!el) return;
+  const msgs = [...MAP_LOADING_MSGS].sort(() => Math.random() - .5).slice(0, 4);
+  let i = 0;
+  el.style.display = 'block';
+  el.textContent = msgs[0](cat);
+  mapMsgInterval = setInterval(() => {
+    i = (i + 1) % msgs.length;
+    el.textContent = msgs[i](cat);
+  }, 2200);
+}
+function stopMapMsg() {
+  if (mapMsgInterval) { clearInterval(mapMsgInterval); mapMsgInterval = null; }
+  const el = document.getElementById('map-status-msg');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
+}
 
 function iaInitMap(center) {
   if (iaMapReady) return;
@@ -1216,7 +1258,7 @@ function iaInitMap(center) {
   </div>`;
   const homeIcon = L.divIcon({ html: homeHtml, className: '', iconAnchor: [14, 36], iconSize: [28, 36] });
   L.marker(center, { icon: homeIcon, zIndexOffset: 1000 }).addTo(iaMap)
-    .bindPopup(`<div class="popup-name">📍 ${currentSearchFull}</div>`);
+    .bindPopup(`<div class="popup-name">📍 ${currentSearchFull || currentSearchCityState}</div>`);
 }
 
 function iaMakePinIcon(color) {
@@ -1232,7 +1274,7 @@ function iaMakePinIcon(color) {
 }
 
 function iaDirectionsUrl(name) {
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentSearchFull)}&destination=${encodeURIComponent(name)}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentSearchFull || currentSearchCityState)}&destination=${encodeURIComponent(name)}`;
 }
 
 function iaBuildLayer(cat, places) {
@@ -1282,6 +1324,15 @@ function iaUpdateNoResults() {
   }
 }
 
+function iaDimOtherPills(activeCat) {
+  document.querySelectorAll('.map-pill').forEach(p => {
+    if (p.dataset.cat !== activeCat) p.classList.add('dimmed');
+  });
+}
+function iaRestorePills() {
+  document.querySelectorAll('.map-pill').forEach(p => p.classList.remove('dimmed'));
+}
+
 function iaSetLoadingBar(on) {
   document.getElementById('map-loading-bar').classList.toggle('active', on);
 }
@@ -1301,6 +1352,7 @@ function iaEvictOldest() {
 async function toggleMapPill(btn) {
   const cat = btn.dataset.cat;
 
+  // Deactivate if already active
   if (btn.classList.contains('active')) {
     btn.classList.remove('active');
     iaActiveQueue = iaActiveQueue.filter(c => c !== cat);
@@ -1310,21 +1362,27 @@ async function toggleMapPill(btn) {
     iaUpdateLegend();
     iaUpdateNoResults();
     iaFitToActive();
-    if (iaActiveQueue.length === 0) document.getElementById('map-empty-state').style.display = 'flex';
+    if (iaActiveQueue.length === 0) {
+      document.getElementById('map-empty-state').style.display = 'flex';
+      stopMapMsg();
+    }
     return;
   }
 
-  if (iaIsLoading) return;
+  // FIX: per-category loading guard instead of global lock
+  // This allows tapping a second pill while the first is still loading
+  if (iaLoadingCats.has(cat)) return;
   if (iaActiveQueue.length >= 2) iaEvictOldest();
 
   btn.classList.add('active');
   iaActiveQueue.push(cat);
   document.getElementById('map-empty-state').style.display = 'none';
-  iaIsLoading = true;
+  iaLoadingCats.add(cat);
   iaSetLoadingBar(true);
+  iaDimOtherPills(cat);
+  startMapMsg(MAP_CAT_LABELS[cat].toLowerCase());
 
   try {
-    // Use full address as map center key, city/state as fallback
     const queryAddr = currentSearchFull || currentSearchCityState;
     const { places, nearestOutside } = await iaGetPlaces(queryAddr, cat);
 
@@ -1345,9 +1403,15 @@ async function toggleMapPill(btn) {
     iaActiveQueue = iaActiveQueue.filter(c => c !== cat);
     document.getElementById('inarea-no-results-text').textContent = 'Could not load results — please try again.';
     document.getElementById('inarea-no-results').classList.add('show');
+    iaRestorePills();
   } finally {
-    iaSetLoadingBar(false);
-    iaIsLoading = false;
+    iaLoadingCats.delete(cat);
+    // Only stop the bar/msg if nothing else is loading
+    if (iaLoadingCats.size === 0) {
+      iaSetLoadingBar(false);
+      stopMapMsg();
+      iaRestorePills();
+    }
   }
 }
 
@@ -1357,27 +1421,41 @@ async function openInAreaModal() {
   document.getElementById('inAreaOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  setTimeout(async () => {
-    if (!iaMapReady) {
-      let center = [39.8283, -98.5795]; // US center fallback
-      // Geocode: try full address first (street-level precision), fall back to city/state
-      const queries = currentSearchIsAddress
-        ? [currentSearchFull, currentSearchCityState]
-        : [currentSearchCityState];
-      for (const q of queries) {
-        try {
-          const geo = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
-            { headers: { 'Accept-Language': 'en-US,en' } }
-          );
-          const gd = await geo.json();
-          if (gd.length > 0) { center = [parseFloat(gd[0].lat), parseFloat(gd[0].lon)]; break; }
-        } catch {}
+  // FIX: init map immediately with US center so it always renders,
+  // then geocode async and reposition once we have real coords
+  if (!iaMapReady) {
+    const fallbackCenter = [39.8283, -98.5795];
+    iaInitMap(fallbackCenter);
+  }
+
+  // Small delay for modal animation to complete before invalidating size
+  setTimeout(() => { if (iaMap) iaMap.invalidateSize(); }, 340);
+
+  // Geocode in background — reposition map once we get real coords
+  const queries = currentSearchIsAddress
+    ? [currentSearchFull, currentSearchCityState]
+    : [currentSearchCityState];
+  for (const q of queries) {
+    try {
+      const geo = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'en-US,en' } }
+      );
+      const gd = await geo.json();
+      if (gd.length > 0) {
+        const center = [parseFloat(gd[0].lat), parseFloat(gd[0].lon)];
+        // Only fly to geocoded location if no pills are active yet
+        if (iaActiveQueue.length === 0 && iaMap) {
+          iaMap.setView(center, 11);
+          // Update home pin position
+          iaMap.eachLayer(layer => {
+            if (layer._ia_home) { iaMap.removeLayer(layer); }
+          });
+        }
+        break;
       }
-      iaInitMap(center);
-    }
-    iaMap.invalidateSize();
-  }, 330);
+    } catch {}
+  }
 }
 
 function closeInAreaModal() {
@@ -1393,8 +1471,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInAreaM
 
 function resetMapState() {
   closeInAreaModal();
+  stopMapMsg();
   document.querySelectorAll('.map-pill.active').forEach(p => p.classList.remove('active'));
   iaActiveQueue = [];
+  iaLoadingCats.clear();
+  iaRestorePills();
   Object.keys(iaPlacesMap).forEach(k => delete iaPlacesMap[k]);
   Object.keys(iaLayers).forEach(k => delete iaLayers[k]);
   if (iaMap) { iaMap.remove(); iaMap = null; iaMapReady = false; }
