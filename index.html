@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AreaScout v2.4 — Demographics Explorer</title>
+<title>AreaScout v2.5 — Demographics Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -23,6 +23,9 @@
     --accent:  #4f8ef7;
     --accent2: #38d9a9;
     --danger:  #f74f6b;
+    --conf-high:   #38d9a9;
+    --conf-medium: #f7a24f;
+    --conf-low:    #f74f6b;
     --font-d:  'DM Serif Display', Georgia, serif;
     --font-b:  'DM Sans', system-ui, sans-serif;
     --r:       12px;
@@ -32,122 +35,247 @@
 
   html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-b); font-size: 15px; line-height: 1.6; }
 
-  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px 28px; display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 100; }
+  /* ── Topbar ── */
+  .topbar {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100;
+  }
   .brand-title { font-family: var(--font-d); font-size: 20px; letter-spacing: -0.02em; flex-shrink: 0; }
   .brand-title span { color: var(--accent); }
-  .search-wrap { flex: 1; max-width: 500px; position: relative; }
-  .search-wrap input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 106px 10px 16px; font-family: var(--font-b); font-size: 14px; color: var(--text); outline: none; transition: border-color var(--ease), box-shadow var(--ease); }
+  .brand-ver { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .05em; margin-left: -8px; align-self: flex-end; padding-bottom: 2px; flex-shrink: 0; }
+
+  /* Hide brand on very small screens to give search more room */
+  @media (max-width: 420px) {
+    .brand-title, .brand-ver { display: none; }
+  }
+
+  .search-wrap { flex: 1; max-width: 520px; position: relative; }
+  .search-wrap input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+    padding: 10px 80px 10px 14px; font-family: var(--font-b); font-size: 14px; color: var(--text);
+    outline: none; transition: border-color var(--ease), box-shadow var(--ease);
+    -webkit-appearance: none;
+  }
   .search-wrap input::placeholder { color: var(--text3); }
   .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.14); }
-  .search-wrap button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 6px 14px; font-family: var(--font-b); font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity var(--ease); }
+  .search-wrap button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: var(--accent); color: #fff; border: none; border-radius: 7px;
+    padding: 6px 12px; font-family: var(--font-b); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: opacity var(--ease); white-space: nowrap;
+  }
   .search-wrap button:hover { opacity: .87; }
   .search-wrap button:disabled { opacity: .4; cursor: not-allowed; }
 
-  .ac-list { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm); z-index: 200; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.5); display: none; }
+  /* ── Autocomplete + recent searches ── */
+  .ac-list {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm);
+    z-index: 200; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.5); display: none;
+    max-height: 320px; overflow-y: auto;
+  }
   .ac-list.open { display: block; }
-  .ac-item { padding: 9px 14px; font-size: 13px; color: var(--text2); cursor: pointer; transition: background var(--ease), color var(--ease); display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .ac-section-label {
+    padding: 7px 14px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text3); border-bottom: 1px solid var(--border);
+  }
+  .ac-item {
+    padding: 9px 14px; font-size: 13px; color: var(--text2);
+    cursor: pointer; transition: background var(--ease), color var(--ease);
+    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
+  }
   .ac-item:last-child { border-bottom: none; }
   .ac-item:hover, .ac-item.active { background: rgba(79,142,247,.1); color: var(--text); }
-  .ac-item .ac-pin { font-size: 11px; opacity: .45; flex-shrink: 0; }
+  .ac-item .ac-pin { font-size: 12px; opacity: .5; flex-shrink: 0; }
   .ac-item .ac-main { font-weight: 500; color: var(--text); flex: 1; }
+  .ac-item .ac-remove { font-size: 11px; color: var(--text3); padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity var(--ease); }
+  .ac-item:hover .ac-remove { opacity: 1; }
+  .ac-item .ac-remove:hover { color: var(--danger); }
   .ac-type { font-size: 10px; color: var(--text3); background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
 
-  .quick-row { padding: 10px 28px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; background: var(--bg); border-bottom: 1px solid var(--border); }
+  /* ── Quick row — horizontal scroll on mobile ── */
+  .quick-row {
+    padding: 8px 16px; display: flex; align-items: center; gap: 7px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap;
+  }
+  .quick-row::-webkit-scrollbar { display: none; }
   .quick-label { font-size: 12px; color: var(--text3); flex-shrink: 0; }
-  .pill { font-size: 12px; padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; transition: all var(--ease); font-family: var(--font-b); }
+  .pill {
+    font-size: 12px; padding: 4px 11px; border-radius: 20px; white-space: nowrap;
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text2);
+    cursor: pointer; transition: all var(--ease); font-family: var(--font-b); flex-shrink: 0;
+  }
   .pill:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
 
-  .main { flex: 1; padding: 24px 28px; max-width: 1080px; margin: 0 auto; width: 100%; }
+  /* ── Main ── */
+  .main { flex: 1; padding: 20px 16px; max-width: 1080px; margin: 0 auto; width: 100%; }
+  @media (min-width: 600px) { .main { padding: 24px 28px; } }
+
   .status { font-size: 13px; color: var(--text2); min-height: 22px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; transition: all .3s ease; }
   .status.loading { color: var(--accent); }
   .status.error   { color: var(--danger); }
   .spinner { width: 13px; height: 13px; border: 2px solid rgba(79,142,247,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px; text-align: center; gap: 14px; }
-  .placeholder-icon { width: 68px; height: 68px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 28px; }
-  .placeholder h2 { font-family: var(--font-d); font-size: 26px; font-weight: 400; letter-spacing: -.02em; }
-  .placeholder p { font-size: 14px; color: var(--text2); max-width: 360px; line-height: 1.7; }
+  /* ── Placeholder ── */
+  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; text-align: center; gap: 14px; }
+  .placeholder-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .placeholder h2 { font-family: var(--font-d); font-size: clamp(20px, 5vw, 26px); font-weight: 400; letter-spacing: -.02em; }
+  .placeholder p { font-size: 14px; color: var(--text2); max-width: 340px; line-height: 1.7; }
   .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; max-width: 420px; width: 100%; }
-  .sample-btn { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm); padding: 10px 8px; font-family: var(--font-b); font-size: 12px; color: var(--text2); cursor: pointer; transition: all var(--ease); text-align: center; }
+  @media (max-width: 360px) { .sample-grid { grid-template-columns: repeat(2, 1fr); } }
+  .sample-btn { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-sm); padding: 10px 8px; font-family: var(--font-b); font-size: 12px; color: var(--text2); cursor: pointer; transition: all var(--ease); text-align: center; -webkit-tap-highlight-color: transparent; }
   .sample-btn:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,.07); }
   .sample-btn strong { display: block; font-size: 13px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
 
+  /* ── Dashboard ── */
   .dashboard { display: none; animation: fadeUp .3s ease; }
   .dashboard.visible { display: block; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-  .loc-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-  .loc-name { font-family: var(--font-d); font-size: 30px; font-weight: 400; letter-spacing: -.03em; }
-  .loc-badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.22); letter-spacing: .06em; text-transform: uppercase; }
-  .loc-year { font-size: 12px; color: var(--text3); margin-left: auto; }
-  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin: 20px 0 10px; }
+  .loc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .loc-name { font-family: var(--font-d); font-size: clamp(22px, 5vw, 30px); font-weight: 400; letter-spacing: -.03em; }
+  .loc-badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.22); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .loc-year { font-size: 12px; color: var(--text3); margin-left: auto; white-space: nowrap; }
+  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin: 18px 0 9px; }
 
-  .stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 9px; }
-  @media (max-width: 860px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 500px)  { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
-  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 15px 11px; transition: border-color var(--ease), background var(--ease); cursor: pointer; display: flex; flex-direction: column; position: relative; }
-  .stat-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
-  .stat-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
-  .stat-card:hover .ext-badge { opacity: 1; }
-  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 600; }
-  .stat-value { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 5px; }
-  .stat-delta { font-size: 11px; margin-bottom: 8px; }
-  .d-pos { color: var(--accent2); } .d-neg { color: var(--danger); } .d-neu { color: var(--text3); }
-  .stat-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 7px; line-height: 1.3; transition: color var(--ease); min-height: 2.6em; display: flex; align-items: flex-end; }
-  .stat-card:hover .stat-source { color: var(--accent); }
-
-  .mid-row { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
-  @media (max-width: 720px) { .mid-row { grid-template-columns: 1fr; } }
-  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; display: flex; flex-direction: column; cursor: pointer; transition: border-color var(--ease), background var(--ease); position: relative; }
-  .chart-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
-  .chart-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
-  .chart-card:hover .ext-badge { opacity: 1; }
-  .chart-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 14px; }
-  .chart-wrap { position: relative; width: 100%; }
-  .legend-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
-  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-  .chart-source { margin-top: auto; padding-top: 12px; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); line-height: 1.3; transition: color var(--ease); }
-  .chart-card:hover .chart-source { color: var(--accent); }
-
-  .qol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; align-content: start; }
-  @media (max-width: 860px) { .qol-grid { grid-template-columns: repeat(2, 1fr); } }
-  .qol-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 13px 14px; display: flex; align-items: stretch; gap: 11px; transition: border-color var(--ease), background var(--ease); cursor: pointer; position: relative; }
-  .qol-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
-  .qol-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
-  .qol-card:hover .ext-badge { opacity: 1; }
-  .qol-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-top: 2px; }
-  .ic-green { background: rgba(56,217,169,.13); } .ic-blue { background: rgba(79,142,247,.13); } .ic-amber { background: rgba(247,162,79,.13); } .ic-pink { background: rgba(247,79,155,.13); } .ic-teal { background: rgba(92,188,240,.13); } .ic-purple { background: rgba(155,138,251,.13); } .ic-rose { background: rgba(251,113,133,.13); }
-  .qol-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .qol-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 3px; }
-  .qol-value { font-size: 17px; font-weight: 600; line-height: 1.15; margin-bottom: 3px; }
-  .qol-sub { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
-  .qol-source { margin-top: auto; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 6px; line-height: 1.3; transition: color var(--ease); min-height: 2.6em; display: flex; align-items: flex-end; }
-  .qol-card:hover .qol-source { color: var(--accent); }
-
-  .insights-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; margin-top: 14px; border-left: 3px solid var(--accent); }
-  .insights-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 12px; }
-  .insight-item { font-size: 13px; color: var(--text2); line-height: 1.65; padding: 8px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
-  .insight-item:last-child { border-bottom: none; }
-  .insight-bullet { color: var(--accent); flex-shrink: 0; }
-
-  .transparency-note { background: rgba(56,217,169,.05); border: 1px solid rgba(56,217,169,.15); border-radius: var(--r); padding: 12px 16px; margin-top: 14px; font-size: 12px; color: var(--text2); line-height: 1.6; display: flex; gap: 10px; align-items: flex-start; }
-  .transparency-note .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-  .source-note { font-size: 11px; color: var(--text3); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-
-  .action-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .action-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; transition: all var(--ease); font-family: var(--font-b); text-decoration: none; }
+  /* ── Action row ── */
+  .action-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-sm);
+    border: 1px solid var(--border2); background: var(--bg2); color: var(--text2);
+    cursor: pointer; transition: all var(--ease); font-family: var(--font-b); text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
   .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
   .action-btn.copied { border-color: var(--accent2); color: var(--accent2); background: rgba(56,217,169,.08); }
 
-  .loc-links { display: flex; gap: 8px; margin-left: 8px; align-items: center; }
+  /* ── Map + Wiki links ── */
+  .loc-links { display: flex; gap: 7px; align-items: center; }
   .loc-link { font-size: 11px; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text3); cursor: pointer; text-decoration: none; transition: all var(--ease); display: inline-flex; align-items: center; gap: 4px; }
   .loc-link:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.08); }
 
-  .chart-inner { display: flex; flex-direction: column; height: 100%; }
+  /* ── Confidence dot + tooltip ── */
+  .conf-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    cursor: help; position: relative; margin-left: 4px; vertical-align: middle;
+  }
+  .conf-dot.high   { background: var(--conf-high); }
+  .conf-dot.medium { background: var(--conf-medium); }
+  .conf-dot.low    { background: var(--conf-low); }
+
+  /* Tooltip — works on hover (desktop) and via .tip-open class (mobile tap) */
+  .conf-wrap { position: relative; display: inline-flex; align-items: center; }
+  .conf-tip {
+    position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+    background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 7px 10px; font-size: 11px; color: var(--text2); line-height: 1.45;
+    white-space: nowrap; pointer-events: none; z-index: 50;
+    opacity: 0; transition: opacity .15s ease;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+    min-width: 160px; max-width: 220px; white-space: normal; text-align: left;
+  }
+  .conf-tip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--border2);
+  }
+  /* Show on hover (desktop) */
+  .conf-wrap:hover .conf-tip { opacity: 1; }
+  /* Show on tap (mobile) — toggled via JS */
+  .conf-wrap.tip-open .conf-tip { opacity: 1; pointer-events: all; }
+
+  /* ── Stat cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (min-width: 700px) { .stat-grid { grid-template-columns: repeat(6, 1fr); } }
+  @media (max-width: 360px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 13px 13px 10px; transition: border-color var(--ease), background var(--ease);
+    cursor: pointer; display: flex; flex-direction: column; position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stat-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .stat-card .ext-badge { position: absolute; top: 7px; right: 8px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .stat-card:hover .ext-badge { opacity: 1; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; font-weight: 600; }
+  .stat-value { font-size: 19px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .stat-delta { font-size: 11px; margin-bottom: 4px; }
+  .stat-national { font-size: 10px; color: var(--text3); margin-bottom: 6px; line-height: 1.3; }
+  .d-pos { color: var(--accent2); } .d-neg { color: var(--danger); } .d-neu { color: var(--text3); }
+  .stat-footer { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 6px; gap: 4px; }
+  .stat-source { font-size: 10px; color: var(--text3); line-height: 1.3; transition: color var(--ease); flex: 1; }
+  .stat-card:hover .stat-source { color: var(--accent); }
+
+  /* ── Mid row ── */
+  .mid-row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 720px) { .mid-row { grid-template-columns: 240px 1fr; } }
+
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; cursor: pointer; transition: border-color var(--ease), background var(--ease); position: relative; }
+  .chart-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .chart-card .ext-badge { position: absolute; top: 8px; right: 9px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .chart-card:hover .ext-badge { opacity: 1; }
+  .chart-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 12px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .chart-source { margin-top: auto; padding-top: 10px; font-size: 10px; color: var(--text3); border-top: 1px solid var(--border); line-height: 1.3; transition: color var(--ease); }
+  .chart-card:hover .chart-source { color: var(--accent); }
+
+  /* ── QoL grid ── */
+  .qol-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; align-content: start; }
+  @media (min-width: 600px) { .qol-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 320px) { .qol-grid { grid-template-columns: 1fr; } }
+
+  .qol-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 11px 12px; display: flex; align-items: stretch; gap: 9px;
+    transition: border-color var(--ease), background var(--ease);
+    cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent;
+  }
+  .qol-card:hover { border-color: var(--accent); background: rgba(79,142,247,.04); }
+  .qol-card .ext-badge { position: absolute; top: 7px; right: 8px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity var(--ease); }
+  .qol-card:hover .ext-badge { opacity: 1; }
+  .qol-icon { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; margin-top: 1px; }
+  .ic-green { background: rgba(56,217,169,.13); } .ic-blue { background: rgba(79,142,247,.13); }
+  .ic-amber { background: rgba(247,162,79,.13); } .ic-pink { background: rgba(247,79,155,.13); }
+  .ic-teal  { background: rgba(92,188,240,.13); } .ic-purple { background: rgba(155,138,251,.13); }
+  .ic-rose  { background: rgba(251,113,133,.13); }
+  .qol-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .qol-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 2px; }
+  .qol-value { font-size: 15px; font-weight: 600; line-height: 1.2; margin-bottom: 2px; }
+  .qol-sub { font-size: 11px; color: var(--text2); line-height: 1.35; margin-bottom: 5px; }
+  .qol-footer { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 5px; gap: 4px; }
+  .qol-source { font-size: 10px; color: var(--text3); line-height: 1.3; transition: color var(--ease); flex: 1; }
+  .qol-card:hover .qol-source { color: var(--accent); }
+
+  /* ── AI disclaimer ── */
+  .ai-disclaimer {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: var(--text3); line-height: 1.5;
+    padding: 8px 12px; border-radius: var(--r-sm);
+    background: rgba(79,142,247,.05); border: 1px solid rgba(79,142,247,.1);
+    margin-bottom: 16px;
+  }
+  .ai-disclaimer .ai-icon { font-size: 13px; flex-shrink: 0; opacity: .7; }
+  .insights-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 18px; margin-top: 12px; border-left: 3px solid var(--accent); }
+  .insights-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 10px; }
+  .insight-item { font-size: 13px; color: var(--text2); line-height: 1.65; padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; gap: 9px; }
+  .insight-item:last-child { border-bottom: none; }
+  .insight-bullet { color: var(--accent); flex-shrink: 0; }
+
+  .transparency-note { background: rgba(56,217,169,.05); border: 1px solid rgba(56,217,169,.15); border-radius: var(--r); padding: 11px 14px; margin-top: 12px; font-size: 12px; color: var(--text2); line-height: 1.6; display: flex; gap: 9px; align-items: flex-start; }
+  .transparency-note .icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .source-note { font-size: 11px; color: var(--text3); text-align: right; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* ── BMC ── */
   .bmc-wrap { margin-top: 10px; display: flex; justify-content: center; }
 
+  /* ── Print ── */
   @media print {
     .topbar, .quick-row, .action-row, .bmc-wrap, .transparency-note { display: none !important; }
     .dashboard { display: block !important; }
@@ -156,38 +284,40 @@
     .loc-link { display: none; }
   }
 
-  .weather-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 0; }
-  @media (max-width: 700px) { .weather-row { grid-template-columns: repeat(2, 1fr); } }
-  .weather-card { border-radius: var(--r); padding: 11px 13px; cursor: default; position: relative; display: flex; flex-direction: column; border: 1px solid transparent; }
+  /* ── Weather cards ── */
+  .weather-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 560px) { .weather-row { grid-template-columns: repeat(4, 1fr); } }
+  .weather-card { border-radius: var(--r); padding: 10px 12px; cursor: default; display: flex; flex-direction: column; border: 1px solid transparent; }
   .weather-card.wc-winter-avg  { background: #1a2a3a; border-color: #2a4a6a; }
   .weather-card.wc-winter-low  { background: #121e2e; border-color: #1e3650; }
   .weather-card.wc-summer-avg  { background: #3a1a10; border-color: #6a2e18; }
   .weather-card.wc-summer-peak { background: #2e1008; border-color: #5a2010; }
-  .weather-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-  .wc-winter-avg  .weather-label { color: #5b9bd5; } .wc-winter-low  .weather-label { color: #4a7fb5; }
-  .wc-summer-avg  .weather-label { color: #e07050; } .wc-summer-peak .weather-label { color: #c05030; }
-  .weather-value { font-size: 22px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
-  .wc-winter-avg  .weather-value { color: #7ab4e8; } .wc-winter-low  .weather-value { color: #5a8ec8; }
-  .wc-summer-avg  .weather-value { color: #f08060; } .wc-summer-peak .weather-value { color: #d06040; }
+  .weather-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+  .wc-winter-avg .weather-label { color: #5b9bd5; } .wc-winter-low .weather-label { color: #4a7fb5; }
+  .wc-summer-avg .weather-label { color: #e07050; } .wc-summer-peak .weather-label { color: #c05030; }
+  .weather-value { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 3px; }
+  .wc-winter-avg .weather-value { color: #7ab4e8; } .wc-winter-low .weather-value { color: #5a8ec8; }
+  .wc-summer-avg .weather-value { color: #f08060; } .wc-summer-peak .weather-value { color: #d06040; }
   .weather-sub { font-size: 11px; line-height: 1.3; }
-  .wc-winter-avg  .weather-sub { color: #4a7aaa; } .wc-winter-low  .weather-sub { color: #3a6090; }
-  .wc-summer-avg  .weather-sub { color: #a05040; } .wc-summer-peak .weather-sub { color: #904030; }
+  .wc-winter-avg .weather-sub { color: #4a7aaa; } .wc-winter-low .weather-sub { color: #3a6090; }
+  .wc-summer-avg .weather-sub { color: #a05040; } .wc-summer-peak .weather-sub { color: #904030; }
 
-  @keyframes trivia-pulse { 0%, 100% { border-color: var(--border); box-shadow: none; } 50% { border-color: rgba(155,138,251,.6); box-shadow: 0 0 0 3px rgba(155,138,251,.12); } }
-  .trivia-full { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; display: flex; align-items: center; gap: 18px; cursor: pointer; transition: border-color var(--ease), background var(--ease); animation: trivia-pulse 2.5s ease-in-out 1s 3; }
+  /* ── Trivia ── */
+  @keyframes trivia-pulse { 0%,100% { border-color: var(--border); box-shadow: none; } 50% { border-color: rgba(155,138,251,.6); box-shadow: 0 0 0 3px rgba(155,138,251,.12); } }
+  .trivia-full { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 18px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: border-color var(--ease), background var(--ease); animation: trivia-pulse 2.5s ease-in-out 1s 3; -webkit-tap-highlight-color: transparent; }
   .trivia-full:hover { border-color: rgba(155,138,251,.5); background: rgba(155,138,251,.04); animation: none; }
   .trivia-full.loaded { animation: trivia-pulse 2.5s ease-in-out 0.5s 3; }
   .trivia-full-left { flex-shrink: 0; }
-  .trivia-dice { width: 48px; height: 48px; border-radius: 12px; background: rgba(155,138,251,.15); border: 1px solid rgba(155,138,251,.25); display: flex; align-items: center; justify-content: center; font-size: 24px; transition: transform .3s ease; }
+  .trivia-dice { width: 44px; height: 44px; border-radius: 11px; background: rgba(155,138,251,.15); border: 1px solid rgba(155,138,251,.25); display: flex; align-items: center; justify-content: center; font-size: 22px; transition: transform .3s ease; }
   .trivia-full:hover .trivia-dice { transform: rotate(20deg) scale(1.1); }
   .trivia-full-body { flex: 1; min-width: 0; }
-  .trivia-full-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(155,138,251,.9); margin-bottom: 7px; }
-  .trivia-full-text { font-size: 14px; color: var(--text); line-height: 1.65; margin-bottom: 10px; transition: opacity .25s ease; }
-  .trivia-full-source { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); padding-top: 8px; border-top: 1px solid var(--border); }
+  .trivia-full-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(155,138,251,.9); margin-bottom: 6px; }
+  .trivia-full-text { font-size: 14px; color: var(--text); line-height: 1.65; margin-bottom: 8px; transition: opacity .25s ease; }
+  .trivia-full-source { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); padding-top: 7px; border-top: 1px solid var(--border); }
   .trivia-source-icon { font-size: 12px; opacity: .55; }
   .trivia-loading { opacity: .4; font-style: italic; font-size: 13px; }
-  .trivia-full-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-left: 4px; }
-  .trivia-refresh { font-size: 22px; line-height: 1; opacity: .35; transition: transform .45s ease, opacity var(--ease); }
+  .trivia-full-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .trivia-refresh { font-size: 20px; opacity: .35; transition: transform .45s ease, opacity var(--ease); }
   .trivia-full:hover .trivia-refresh { opacity: 1; transform: rotate(180deg); }
   .trivia-hint { font-size: 10px; color: var(--text3); text-align: center; line-height: 1.3; opacity: 0; transition: opacity var(--ease); }
   .trivia-full:hover .trivia-hint { opacity: 1; }
@@ -195,50 +325,23 @@
   /* ═══════════════════════════════════════════════════
      IN THE AREA — GOOGLE MAPS LAUNCHER SHEET
   ═══════════════════════════════════════════════════ */
-  .ia-overlay {
-    position: fixed; inset: 0; z-index: 300;
-    background: rgba(0,0,0,.72);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity .22s ease;
-  }
+  .ia-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .22s ease; }
   .ia-overlay.open { opacity: 1; pointer-events: all; }
-
-  .ia-sheet {
-    background: var(--bg2);
-    border-radius: 22px 22px 0 0;
-    border: 1px solid var(--border2); border-bottom: none;
-    width: 100%; max-width: 680px;
-    transform: translateY(32px);
-    transition: transform .32s cubic-bezier(.22,1,.36,1);
-    overflow: hidden;
-  }
+  .ia-sheet { background: var(--bg2); border-radius: 22px 22px 0 0; border: 1px solid var(--border2); border-bottom: none; width: 100%; max-width: 680px; transform: translateY(32px); transition: transform .32s cubic-bezier(.22,1,.36,1); overflow: hidden; }
   .ia-overlay.open .ia-sheet { transform: translateY(0); }
-
   .ia-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border2); margin: 14px auto 0; display: block; }
-
-  .ia-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 22px 0; }
-  .ia-title { font-family: var(--font-d); font-size: 1.35rem; color: var(--text); letter-spacing: -.02em; }
-  .ia-subtitle { font-size: 11px; color: var(--text3); margin-top: 4px; letter-spacing: .01em; }
+  .ia-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 20px 0; }
+  .ia-title { font-family: var(--font-d); font-size: 1.3rem; color: var(--text); letter-spacing: -.02em; }
+  .ia-subtitle { font-size: 11px; color: var(--text3); margin-top: 4px; }
   .ia-close { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border2); background: var(--bg3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--ease); flex-shrink: 0; margin-top: 2px; }
   .ia-close:hover { border-color: var(--accent); background: rgba(79,142,247,.1); }
   .ia-close svg { width: 12px; height: 12px; stroke: var(--text2); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-
   .ia-divider { height: 1px; background: var(--border); margin: 14px 0 0; }
-  .ia-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--text3); padding: 14px 22px 10px; }
-
-  .ia-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 16px 16px; }
-  @media (max-width: 520px) { .ia-grid { grid-template-columns: repeat(3, 1fr); } }
-
-  .ia-tile {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; padding: 18px 10px 15px; border-radius: 14px;
-    border: 1.5px solid var(--border); background: var(--bg3);
-    cursor: pointer; transition: all .2s ease; position: relative; overflow: hidden;
-    -webkit-tap-highlight-color: transparent; user-select: none;
-  }
+  .ia-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--text3); padding: 12px 20px 9px; }
+  .ia-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; padding: 0 14px 14px; }
+  @media (max-width: 480px) { .ia-grid { grid-template-columns: repeat(3, 1fr); } }
+  .ia-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 16px 8px 13px; border-radius: 13px; border: 1.5px solid var(--border); background: var(--bg3); cursor: pointer; transition: all .2s ease; position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; }
   .ia-tile:active { transform: scale(.96); }
-
   .ia-tile[data-cat="coffee"]      { --tc: #e0a060; --tg: rgba(184,118,58,.18); }
   .ia-tile[data-cat="icecream"]    { --tc: #e080b0; --tg: rgba(192,96,138,.18); }
   .ia-tile[data-cat="gas"]         { --tc: #7aa0e0; --tg: rgba(58,101,184,.18); }
@@ -247,22 +350,16 @@
   .ia-tile[data-cat="schools"]     { --tc: #a080e0; --tg: rgba(112,82,184,.18); }
   .ia-tile[data-cat="wholesale"]   { --tc: #a0a878; --tg: rgba(106,116,74,.18); }
   .ia-tile[data-cat="parks"]       { --tc: #60d090; --tg: rgba(46,168,96,.18); }
-
   .ia-tile:hover { border-color: var(--tc); background: var(--tg); transform: translateY(-2px); box-shadow: 0 0 0 1px var(--tc), 0 8px 24px rgba(0,0,0,.35); }
-
-  .ia-tile-icon { width: 46px; height: 46px; border-radius: 13px; background: rgba(255,255,255,.05); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; transition: all .2s ease; flex-shrink: 0; }
+  .ia-tile-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 21px; transition: all .2s ease; flex-shrink: 0; }
   .ia-tile:hover .ia-tile-icon { background: var(--tg); border-color: var(--tc); transform: scale(1.08); }
-
-  .ia-tile-label { font-size: 11.5px; font-weight: 600; color: var(--text2); text-align: center; line-height: 1.25; transition: color .2s ease; }
+  .ia-tile-label { font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; line-height: 1.25; transition: color .2s ease; }
   .ia-tile:hover .ia-tile-label { color: var(--tc); }
-
-  .ia-tile-ext { position: absolute; top: 7px; right: 8px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity .2s ease; }
+  .ia-tile-ext { position: absolute; top: 6px; right: 7px; font-size: 9px; color: var(--text3); opacity: 0; transition: opacity .2s ease; }
   .ia-tile:hover .ia-tile-ext { opacity: 1; }
-
   @keyframes iaFlash { 0% { background: var(--tg); } 40% { background: rgba(255,255,255,.07); border-color: var(--tc); } 100% { background: var(--tg); } }
   .ia-tile.launching { animation: iaFlash .3s ease; }
-
-  .ia-footer { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 22px 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
+  .ia-footer { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 20px 18px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
   .ia-footer svg { width: 12px; height: 12px; stroke: var(--text3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .55; }
 </style>
 </head>
@@ -270,10 +367,10 @@
 
 <div class="topbar">
   <div class="brand-title">Area<span>Scout</span></div>
-  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;margin-left:-12px;align-self:flex-end;padding-bottom:3px;">v2.4</div>
+  <div class="brand-ver">v2.5</div>
   <div class="search-wrap">
-    <input type="text" id="loc-input" placeholder="City, State or full address — e.g. Knoxville, TN" autocomplete="off" />
-    <button id="search-btn" onclick="runSearch()">Explore →</button>
+    <input type="text" id="loc-input" placeholder="City, State or address…" autocomplete="off" />
+    <button id="search-btn" onclick="runSearch()">Go →</button>
     <div class="ac-list" id="ac-list"></div>
   </div>
 </div>
@@ -295,7 +392,7 @@
   <div class="placeholder" id="placeholder">
     <div class="placeholder-icon">🗺️</div>
     <h2>Explore Any Area</h2>
-    <p>Demographics, employment, and quality-of-life data for any U.S. city or state. Every number links to its source.</p>
+    <p>Demographics, employment, and quality-of-life data for any U.S. city or state.</p>
     <div class="sample-grid">
       <button class="sample-btn" onclick="go('Knoxville, TN')"><strong>Knoxville, TN</strong>Mid-size city</button>
       <button class="sample-btn" onclick="go('Chattanooga, TN')"><strong>Chattanooga, TN</strong>Growing metro</button>
@@ -315,9 +412,14 @@
     </div>
 
     <div class="action-row">
-      <button class="action-btn" id="share-btn" onclick="shareLocation()">🔗 Share this report</button>
-      <button class="action-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="action-btn" id="share-btn" onclick="shareLocation()">🔗 Share</button>
+      <button class="action-btn" onclick="window.print()">🖨️ Print</button>
       <button class="action-btn" onclick="openInArea()">🗺️ In the Area</button>
+    </div>
+
+    <div class="ai-disclaimer">
+      <span class="ai-icon">🤖</span>
+      <span>This report was generated by AI using publicly available data sources. Figures are estimates and may vary — always verify with the linked sources before making relocation or financial decisions.</span>
     </div>
 
     <div class="section-label">Climate</div>
@@ -335,7 +437,7 @@
         <div class="trivia-full-source"><span class="trivia-source-icon">📖</span><span id="trivia-source"></span></div>
       </div>
       <div class="trivia-full-right">
-        <div class="trivia-refresh" title="Next fact">🔄</div>
+        <div class="trivia-refresh">🔄</div>
         <div class="trivia-hint">tap for<br>another</div>
       </div>
     </div>
@@ -346,7 +448,7 @@
         <div class="chart-card" onclick="openLink('https://www.bls.gov/oes/current/oes_research_estimates.htm','BLS employment by sector')">
           <div class="ext-badge">↗ source</div>
           <div class="chart-title">Employment by Sector</div>
-          <div class="chart-wrap" style="height:190px"><canvas id="chart-sec"></canvas></div>
+          <div class="chart-wrap" style="height:180px"><canvas id="chart-sec"></canvas></div>
           <div class="legend-row" id="legend-sec"></div>
           <div class="chart-source">Bureau of Labor Statistics · OEWS</div>
         </div>
@@ -364,9 +466,15 @@
 
     <div class="transparency-note">
       <span class="icon">🔍</span>
-      <span>Every card on this page links directly to its source — click any card to verify the data yourself. Figures are AI-synthesized estimates pulled from publicly available government and research datasets. No data has been altered or selectively chosen.</span>
+      <span>Every card links to its source. Figures are AI-synthesized estimates from public government and research datasets.
+        <span style="margin-left:6px;">
+          Confidence: <span style="color:var(--conf-high)">●</span> High &nbsp;
+          <span style="color:var(--conf-medium)">●</span> Medium &nbsp;
+          <span style="color:var(--conf-low)">●</span> Low / limited data
+        </span>
+      </span>
     </div>
-    <div class="source-note">Sources: U.S. Census Bureau ACS · Bureau of Labor Statistics · Zillow Research · Missouri Economic Research · Trust for Public Land · IMLS · FAA · Niche.com · Yelp</div>
+    <div class="source-note">Sources: U.S. Census Bureau ACS · BLS · Zillow · Missouri Economic Research · Trust for Public Land · IMLS · FAA · Niche.com · Yelp</div>
   </div>
 </div>
 
@@ -386,30 +494,14 @@
     <div class="ia-divider"></div>
     <div class="ia-section-label">Select a category to search nearby</div>
     <div class="ia-grid">
-      <div class="ia-tile" data-cat="coffee"      onclick="launchMaps(this,'espresso+coffee+cafe')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">☕</div><div class="ia-tile-label">Coffee &amp;<br>Espresso</div>
-      </div>
-      <div class="ia-tile" data-cat="icecream"    onclick="launchMaps(this,'ice+cream')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🍦</div><div class="ia-tile-label">Ice Cream</div>
-      </div>
-      <div class="ia-tile" data-cat="gas"         onclick="launchMaps(this,'gas+station')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">⛽</div><div class="ia-tile-label">Gas<br>Stations</div>
-      </div>
-      <div class="ia-tile" data-cat="grocery"     onclick="launchMaps(this,'grocery+store+supermarket')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🛒</div><div class="ia-tile-label">Grocery<br>Stores</div>
-      </div>
-      <div class="ia-tile" data-cat="restaurants" onclick="launchMaps(this,'restaurants')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🍽️</div><div class="ia-tile-label">Restaurants</div>
-      </div>
-      <div class="ia-tile" data-cat="schools"     onclick="launchMaps(this,'schools')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🏫</div><div class="ia-tile-label">Schools</div>
-      </div>
-      <div class="ia-tile" data-cat="wholesale"   onclick="launchMaps(this,'Costco+Sams+Club+BJs+Wholesale')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🏬</div><div class="ia-tile-label">Wholesale<br>Clubs</div>
-      </div>
-      <div class="ia-tile" data-cat="parks"       onclick="launchMaps(this,'parks+trails+recreation')">
-        <span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🌳</div><div class="ia-tile-label">Parks &amp;<br>Trails</div>
-      </div>
+      <div class="ia-tile" data-cat="coffee"      onclick="launchMaps(this,'espresso+coffee+cafe')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">☕</div><div class="ia-tile-label">Coffee &amp;<br>Espresso</div></div>
+      <div class="ia-tile" data-cat="icecream"    onclick="launchMaps(this,'ice+cream')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🍦</div><div class="ia-tile-label">Ice Cream</div></div>
+      <div class="ia-tile" data-cat="gas"         onclick="launchMaps(this,'gas+station')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">⛽</div><div class="ia-tile-label">Gas<br>Stations</div></div>
+      <div class="ia-tile" data-cat="grocery"     onclick="launchMaps(this,'grocery+store+supermarket')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🛒</div><div class="ia-tile-label">Grocery<br>Stores</div></div>
+      <div class="ia-tile" data-cat="restaurants" onclick="launchMaps(this,'restaurants')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🍽️</div><div class="ia-tile-label">Restaurants</div></div>
+      <div class="ia-tile" data-cat="schools"     onclick="launchMaps(this,'schools')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🏫</div><div class="ia-tile-label">Schools</div></div>
+      <div class="ia-tile" data-cat="wholesale"   onclick="launchMaps(this,'Costco+Sams+Club+BJs+Wholesale')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🏬</div><div class="ia-tile-label">Wholesale<br>Clubs</div></div>
+      <div class="ia-tile" data-cat="parks"       onclick="launchMaps(this,'parks+trails+recreation')"><span class="ia-tile-ext">↗</span><div class="ia-tile-icon">🌳</div><div class="ia-tile-label">Parks &amp;<br>Trails</div></div>
     </div>
     <div class="ia-footer">
       <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -421,22 +513,43 @@
 <script>
 const WORKER_URL = 'https://late-snow-cc74.lordbizness1234.workers.dev/';
 const SEC_COLORS = ['#4f8ef7','#38d9a9','#f7a24f','#f74f6b','#9b8afb','#5cbcf0','#6ee7b7'];
+const RECENT_KEY = 'areascout_recent';
+const RECENT_MAX = 8;
 
 let activeChart = null;
 let acDebounce  = null;
 let acIndex     = -1;
 let acItems     = [];
+let acMode      = 'suggest'; // 'suggest' | 'recent'
 let msgInterval = null;
 
 let currentSearchFull      = '';
 let currentSearchCityState = '';
 let currentSearchIsAddress = false;
-let currentLat = null;  // geocoded lat — used for Google Maps deep-link
-let currentLng = null;  // geocoded lng
+let currentLat = null;
+let currentLng = null;
 
-// ── Smart address parser ──────────────────────────────────────────────────
+// ── Recent searches (localStorage) ─────────────────────────────────────────
+function getRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+}
+function saveRecent(loc) {
+  try {
+    let list = getRecent().filter(l => l.toLowerCase() !== loc.toLowerCase());
+    list.unshift(loc);
+    if (list.length > RECENT_MAX) list = list.slice(0, RECENT_MAX);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch {}
+}
+function removeRecent(loc) {
+  try {
+    const list = getRecent().filter(l => l.toLowerCase() !== loc.toLowerCase());
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+// ── Smart address parser ────────────────────────────────────────────────────
 const STREET_WORDS = /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ln|lane|way|ct|court|pl|place|pkwy|parkway|cir|circle|hwy|highway|terr|terrace|trail|trl|run|loop|pass|path|row|sq|square)\b/i;
-
 function parseSearchInput(raw) {
   const trimmed = raw.trim();
   const isAddress = /^\d{1,5}\s+\S/.test(trimmed) && STREET_WORDS.test(trimmed);
@@ -446,7 +559,7 @@ function parseSearchInput(raw) {
   return { full: trimmed, cityState, isAddress: true };
 }
 
-// ── Funny loading messages ──
+// ── Funny loading messages ──────────────────────────────────────────────────
 const LOADING_MSGS = [
   loc => `Bribing the Census Bureau for ${loc} data...`,
   loc => `Asking someone's cousin who actually moved to ${loc}...`,
@@ -460,23 +573,27 @@ const LOADING_MSGS = [
   loc => `Asking the ghosts of demographers past...`,
   loc => `Checking if there's a Buc-ee's within reasonable distance...`,
 ];
-
 function startFunnyMessages(loc, barEl) {
   const picked = [...LOADING_MSGS].sort(() => Math.random() - 0.5).slice(0, 5);
   let i = 0;
   barEl.innerHTML = `<div class="spinner"></div>${picked[0](loc)}`;
-  msgInterval = setInterval(() => { i = (i + 1) % picked.length; barEl.innerHTML = `<div class="spinner"></div>${picked[i](loc)}`; }, 2000);
+  msgInterval = setInterval(() => { i = (i+1) % picked.length; barEl.innerHTML = `<div class="spinner"></div>${picked[i](loc)}`; }, 2000);
 }
 function stopFunnyMessages() { if (msgInterval) { clearInterval(msgInterval); msgInterval = null; } }
 
-// ── Autocomplete ──────────────────────────────────────────────────────────
+// ── Autocomplete + recent ───────────────────────────────────────────────────
 const acListEl = document.getElementById('ac-list');
 const locInput = document.getElementById('loc-input');
 
+locInput.addEventListener('focus', () => {
+  if (!locInput.value.trim()) showRecentDropdown();
+});
 locInput.addEventListener('input', () => {
   clearTimeout(acDebounce);
   const val = locInput.value.trim();
+  if (!val) { showRecentDropdown(); return; }
   if (val.length < 2) { closeAc(); return; }
+  acMode = 'suggest';
   acDebounce = setTimeout(() => fetchAc(val), 300);
 });
 locInput.addEventListener('keydown', e => {
@@ -487,6 +604,35 @@ locInput.addEventListener('keydown', e => {
 });
 document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) closeAc(); });
 
+function showRecentDropdown() {
+  const recent = getRecent();
+  if (!recent.length) return;
+  acMode = 'recent';
+  acItems = recent;
+  acIndex = -1;
+  acListEl.innerHTML =
+    `<div class="ac-section-label">Recent searches</div>` +
+    recent.map((loc, i) =>
+      `<div class="ac-item" data-i="${i}" onmousedown="selectRecentAc(${i})">
+        <span class="ac-pin">🕐</span>
+        <span class="ac-main">${loc}</span>
+        <span class="ac-remove" onmousedown="removeRecentAc(event,${i})">✕</span>
+      </div>`
+    ).join('');
+  acListEl.classList.add('open');
+}
+
+function selectRecentAc(i) {
+  locInput.value = acItems[i];
+  closeAc(); runSearch();
+}
+function removeRecentAc(e, i) {
+  e.stopPropagation();
+  removeRecent(acItems[i]);
+  showRecentDropdown();
+  if (!getRecent().length) closeAc();
+}
+
 async function fetchAc(q) {
   try {
     const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=us`, { headers: { 'Accept-Language': 'en-US,en' } });
@@ -494,7 +640,7 @@ async function fetchAc(q) {
     const cityTypes    = ['city','town','village','suburb','county','state','municipality','administrative'];
     const addressTypes = ['house','road','residential','building'];
     const filtered = data.filter(r => cityTypes.includes(r.type) || cityTypes.includes(r.addresstype) || cityTypes.includes(r.class) || addressTypes.includes(r.type) || addressTypes.includes(r.addresstype));
-    renderAc(filtered.slice(0, 6));
+    renderSuggestAc(filtered.slice(0, 6));
   } catch { closeAc(); }
 }
 
@@ -506,11 +652,11 @@ function acLabel(item) {
   const city    = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
   const state   = addr.state || '';
   return isAddr && road
-    ? `${houseNo ? houseNo + ' ' : ''}${road}, ${city}${state ? ', ' + state : ''}`
+    ? `${houseNo ? houseNo+' ' : ''}${road}, ${city}${state ? ', '+state : ''}`
     : (state ? `${city}, ${state}` : city);
 }
 
-function renderAc(items) {
+function renderSuggestAc(items) {
   acItems = items; acIndex = -1;
   if (!items.length) { closeAc(); return; }
   acListEl.innerHTML = items.map((item, i) => {
@@ -525,8 +671,7 @@ function renderAc(items) {
 }
 
 function selectAc(i) {
-  const item = acItems[i]; if (!item) return;
-  locInput.value = acLabel(item);
+  locInput.value = acLabel(acItems[i]);
   closeAc(); runSearch();
 }
 function moveAc(dir) {
@@ -534,7 +679,10 @@ function moveAc(dir) {
   if (!rows.length) return;
   acIndex = Math.max(-1, Math.min(rows.length - 1, acIndex + dir));
   rows.forEach((r, i) => r.classList.toggle('active', i === acIndex));
-  if (acIndex >= 0) locInput.value = acLabel(acItems[acIndex]);
+  if (acIndex >= 0) {
+    if (acMode === 'recent') locInput.value = acItems[acIndex];
+    else locInput.value = acLabel(acItems[acIndex]);
+  }
 }
 function closeAc() { acListEl.classList.remove('open'); acListEl.innerHTML = ''; acItems = []; acIndex = -1; }
 function go(loc) { locInput.value = loc; closeAc(); runSearch(); }
@@ -543,7 +691,7 @@ function openLink(sourceUrl, searchQuery) {
   window.open(url, '_blank', 'noopener');
 }
 
-// ── Geocode in background after every search ──────────────────────────────
+// ── Geocode ─────────────────────────────────────────────────────────────────
 async function geocodeLocation(query) {
   try {
     const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, { headers: { 'Accept-Language': 'en-US,en' } });
@@ -552,7 +700,30 @@ async function geocodeLocation(query) {
   } catch {}
 }
 
-// ── Main search ───────────────────────────────────────────────────────────
+// ── Confidence indicator ─────────────────────────────────────────────────────
+const CONF_TIPS = {
+  high:   'High confidence — well-documented data from reliable government sources.',
+  medium: 'Medium confidence — reasonable estimate; verify with the linked source.',
+  low:    'Low confidence — limited data available for this area. Treat as a rough guide.',
+};
+function confDot(confidence) {
+  const c = (confidence || 'medium').toLowerCase();
+  return `<span class="conf-wrap" onclick="toggleTip(this)">
+    <span class="conf-dot ${c}" title="${CONF_TIPS[c] || ''}"></span>
+    <span class="conf-tip">${CONF_TIPS[c] || ''}</span>
+  </span>`;
+}
+function toggleTip(wrap) {
+  // Close any other open tips first
+  document.querySelectorAll('.conf-wrap.tip-open').forEach(w => { if (w !== wrap) w.classList.remove('tip-open'); });
+  wrap.classList.toggle('tip-open');
+}
+// Close tips when tapping elsewhere on mobile
+document.addEventListener('click', e => {
+  if (!e.target.closest('.conf-wrap')) document.querySelectorAll('.conf-wrap.tip-open').forEach(w => w.classList.remove('tip-open'));
+});
+
+// ── Main search ──────────────────────────────────────────────────────────────
 async function runSearch() {
   const raw = locInput.value.trim();
   const btn = document.getElementById('search-btn');
@@ -573,7 +744,10 @@ async function runSearch() {
   dash.classList.remove('visible');
   ph.style.display = 'none';
 
-  // Geocode in background — ready for In the Area before user even clicks it
+  // Save to recent searches
+  saveRecent(raw);
+
+  // Geocode in background
   geocodeLocation(currentSearchIsAddress ? currentSearchFull : currentSearchCityState);
 
   const cacheKey = 'areascout_' + loc.toLowerCase().trim();
@@ -597,43 +771,44 @@ async function runSearch() {
   } catch(err) {
     stopFunnyMessages();
     bar.className = 'status error';
-    bar.innerHTML = `⚠ ${err.message || 'Something went wrong — check the Worker and try again.'}`;
+    bar.innerHTML = `⚠ ${err.message || 'Something went wrong — try again.'}`;
     ph.style.display = 'flex';
   }
   btn.disabled = false;
 }
 
-// ── Share ──────────────────────────────────────────────────────────────────
+// ── Share ─────────────────────────────────────────────────────────────────────
 function shareLocation() {
-  const cleanLoc = locInput.value.trim() || document.getElementById('loc-name').textContent.trim();
+  // Share the full input so full addresses are preserved
+  const cleanLoc = currentSearchFull || locInput.value.trim() || document.getElementById('loc-name').textContent.trim();
   const url = window.location.origin + window.location.pathname + '?loc=' + encodeURIComponent(cleanLoc);
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('share-btn');
-    btn.textContent = '✓ Link copied!'; btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '🔗 Share this report'; btn.classList.remove('copied'); }, 2500);
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '🔗 Share'; btn.classList.remove('copied'); }, 2500);
   }).catch(() => { prompt('Copy this link:', url); });
 }
 
-// ── Auto-load from URL param ───────────────────────────────────────────────
+// ── Auto-load from URL param ──────────────────────────────────────────────────
 window.addEventListener('load', () => {
   const params = new URLSearchParams(window.location.search);
   const loc = params.get('loc');
   if (loc) { locInput.value = loc; setTimeout(() => runSearch(), 100); }
 });
 
-// ── Trivia ─────────────────────────────────────────────────────────────────
+// ── Trivia ────────────────────────────────────────────────────────────────────
 let triviaList = [], triviaIndex = 0;
 async function loadTrivia(loc) {
   triviaList = []; triviaIndex = 0;
-  const textEl   = document.getElementById('trivia-text');
+  const textEl = document.getElementById('trivia-text');
   const sourceEl = document.getElementById('trivia-source');
-  const card     = document.getElementById('trivia-card');
+  const card = document.getElementById('trivia-card');
   if (!textEl) return;
   textEl.innerHTML = '<span class="trivia-loading">Loading a fun fact...</span>';
   if (sourceEl) sourceEl.textContent = '';
   if (card) { card.classList.remove('loaded'); void card.offsetWidth; card.classList.add('loaded'); }
   try {
-    const res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: loc, mode: 'trivia' }) });
+    const res = await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ location: loc, mode: 'trivia' }) });
     if (!res.ok) throw new Error();
     const data = await res.json();
     if (data.trivia && data.trivia.length) { triviaList = data.trivia; showTrivia(0); }
@@ -648,9 +823,9 @@ function showTrivia(i) {
   textEl.style.opacity = '0';
   setTimeout(() => { textEl.textContent = item.fact; textEl.style.opacity = '1'; if (sourceEl) sourceEl.textContent = item.source || ''; }, 200);
 }
-function refreshTrivia() { if (!triviaList.length) return; triviaIndex = (triviaIndex + 1) % triviaList.length; showTrivia(triviaIndex); }
+function refreshTrivia() { if (!triviaList.length) return; triviaIndex = (triviaIndex+1) % triviaList.length; showTrivia(triviaIndex); }
 
-// ── Render dashboard ───────────────────────────────────────────────────────
+// ── Render dashboard ──────────────────────────────────────────────────────────
 function renderDashboard(d) {
   document.getElementById('loc-name').textContent = d.location;
   document.getElementById('loc-type').textContent = d.locationType;
@@ -665,6 +840,7 @@ function renderDashboard(d) {
       .catch(() => {});
   })(d.location);
 
+  // Weather
   const wx = d.weather || {};
   document.getElementById('weather-row').innerHTML = [
     { cls:'wc-winter-avg',  label:'Avg Winter Temp',    value: wx.avgWinterTemp  || '--', sub: wx.avgWinterMonth  || '' },
@@ -673,6 +849,7 @@ function renderDashboard(d) {
     { cls:'wc-summer-peak', label:'Peak Summer Temp',   value: wx.peakSummerTemp || '--', sub: wx.peakSummerMonth || '' },
   ].map(w => `<div class="weather-card ${w.cls}"><div class="weather-label">${w.label}</div><div class="weather-value">${w.value}</div><div class="weather-sub">${w.sub}</div></div>`).join('');
 
+  // Stat cards — with national avg and confidence
   document.getElementById('stat-grid').innerHTML = (d.stats || []).map(s => {
     let dc = 'd-neu';
     if (s.delta && s.deltaGood !== null && s.deltaGood !== undefined) {
@@ -684,12 +861,18 @@ function renderDashboard(d) {
     const query  = s.searchQuery || (s.label + ' ' + d.location);
     return `<div class="stat-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
       <div class="ext-badge">${srcUrl ? '↗ source' : '↗ search'}</div>
-      <div class="stat-label">${s.label}</div><div class="stat-value">${s.value}</div>
-      ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:8px"></div>'}
-      <div class="stat-source">${s.sourceName}</div>
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.value}</div>
+      ${s.delta ? `<div class="stat-delta ${dc}">${s.delta}</div>` : '<div style="margin-bottom:4px"></div>'}
+      ${s.vsNational ? `<div class="stat-national">${s.vsNational}</div>` : ''}
+      <div class="stat-footer">
+        <div class="stat-source">${s.sourceName}</div>
+        ${confDot(s.confidence)}
+      </div>
     </div>`;
   }).join('');
 
+  // Sector donut
   if (activeChart) { activeChart.destroy(); activeChart = null; }
   activeChart = new Chart(document.getElementById('chart-sec'), {
     type: 'doughnut',
@@ -700,17 +883,24 @@ function renderDashboard(d) {
     `<span class="legend-item"><span class="legend-dot" style="background:${SEC_COLORS[i]}"></span>${l}: ${d.sectors.values[i]}%</span>`
   ).join('');
 
+  // QoL cards — confidence dot + always-linked source
   const qolGrid = document.getElementById('qol-grid');
   qolGrid.querySelectorAll('.qol-card').forEach(el => el.remove());
   qolGrid.insertAdjacentHTML('beforeend', (d.qualityOfLife || []).map(q => {
     const srcUrl = (q.sourceUrl || '').trim();
     const query  = q.searchQuery || (q.label + ' ' + d.location);
+    // Always provide a clickable destination — real URL if available, targeted search otherwise
     return `<div class="qol-card" onclick="openLink('${srcUrl.replace(/'/g,"\\'")}','${query.replace(/'/g,"\\'")}')">
       <div class="ext-badge">${srcUrl ? '↗ source' : '↗ search'}</div>
       <div class="qol-icon ${q.iconClass}">${q.icon}</div>
       <div class="qol-info">
-        <div class="qol-label">${q.label}</div><div class="qol-value">${q.value}</div>
-        <div class="qol-sub">${q.detail}</div><div class="qol-source">${q.sourceName}</div>
+        <div class="qol-label">${q.label}</div>
+        <div class="qol-value">${q.value}</div>
+        <div class="qol-sub">${q.detail}</div>
+        <div class="qol-footer">
+          <div class="qol-source">${q.sourceName}</div>
+          ${confDot(q.confidence)}
+        </div>
       </div>
     </div>`;
   }).join(''));
@@ -727,31 +917,19 @@ function renderDashboard(d) {
 // ═══════════════════════════════════════════════
 // IN THE AREA — GOOGLE MAPS LAUNCHER
 // ═══════════════════════════════════════════════
-
-const GMAPS_ZOOM = 13; // z13 ≈ 5-mile radius view — start tight, user can zoom out
+const GMAPS_ZOOM = 13;
 
 function mapsUrl(query) {
-  // Use full address if one was entered, city/state only if that's all we have.
-  // This becomes the "near" anchor AND the visible label in Maps results.
   const anchor = currentSearchIsAddress ? currentSearchFull : currentSearchCityState;
-
   if (currentLat && currentLng) {
-    // Coordinates center the viewport precisely; anchor name labels the origin point
     return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(anchor)}/@${currentLat},${currentLng},${GMAPS_ZOOM}z`;
   }
-  // Fallback: text-only if geocode hasn't resolved yet
   return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(anchor)}`;
 }
-
 function launchMaps(tile, query) {
   tile.classList.add('launching');
-  setTimeout(() => {
-    tile.classList.remove('launching');
-    window.open(mapsUrl(query), '_blank', 'noopener');
-    // Sheet stays open so user can tap another category without reopening
-  }, 220);
+  setTimeout(() => { tile.classList.remove('launching'); window.open(mapsUrl(query), '_blank', 'noopener'); }, 220);
 }
-
 function openInArea() {
   const displayLoc = currentSearchFull || currentSearchCityState;
   document.getElementById('ia-subtitle').textContent = `${displayLoc} · opens in Google Maps`;
@@ -762,9 +940,7 @@ function closeInArea() {
   document.getElementById('iaOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }
-function handleIaOverlay(e) {
-  if (e.target === document.getElementById('iaOverlay')) closeInArea();
-}
+function handleIaOverlay(e) { if (e.target === document.getElementById('iaOverlay')) closeInArea(); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInArea(); });
 </script>
 </body>
