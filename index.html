@@ -413,7 +413,7 @@
     </div>
     <div class="ia-footer">
       <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      Results open in Google Maps · approx. 20 mi radius
+      Results open in Google Maps · tap another category to keep exploring
     </div>
   </div>
 </div>
@@ -731,12 +731,15 @@ function renderDashboard(d) {
 const GMAPS_ZOOM = 11; // z11 ≈ 20-mile radius view
 
 function mapsUrl(query) {
-  if (currentLat && currentLng) {
-    // Precise lat/lng center — best result
-    return `https://www.google.com/maps/search/${encodeURIComponent(query)}/@${currentLat},${currentLng},${GMAPS_ZOOM}z`;
-  }
-  // Fallback if geocode hasn't resolved yet — text search near location name
   const loc = currentSearchFull || currentSearchCityState;
+  if (currentLat && currentLng) {
+    // Show a pin on the searched location, then search the category nearby.
+    // Google Maps format: /maps/search/{query}/@lat,lng,zoom — drops results
+    // centered on coordinates. We append the location name so Maps also shows
+    // it as a labeled anchor point in the results list.
+    return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(loc)}/@${currentLat},${currentLng},${GMAPS_ZOOM}z`;
+  }
+  // Fallback: text-only search if geocode hasn't resolved yet
   return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(loc)}`;
 }
 
@@ -745,7 +748,7 @@ function launchMaps(tile, query) {
   setTimeout(() => {
     tile.classList.remove('launching');
     window.open(mapsUrl(query), '_blank', 'noopener');
-    closeInArea();
+    // Sheet stays open so user can tap another category without reopening
   }, 220);
 }
 
