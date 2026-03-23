@@ -413,7 +413,7 @@
     </div>
     <div class="ia-footer">
       <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      Results open in Google Maps · tap another category to keep exploring
+      Results open in Google Maps · zoom out to expand the search area
     </div>
   </div>
 </div>
@@ -728,19 +728,19 @@ function renderDashboard(d) {
 // IN THE AREA — GOOGLE MAPS LAUNCHER
 // ═══════════════════════════════════════════════
 
-const GMAPS_ZOOM = 11; // z11 ≈ 20-mile radius view
+const GMAPS_ZOOM = 13; // z13 ≈ 5-mile radius view — start tight, user can zoom out
 
 function mapsUrl(query) {
-  const loc = currentSearchFull || currentSearchCityState;
+  // Use full address if one was entered, city/state only if that's all we have.
+  // This becomes the "near" anchor AND the visible label in Maps results.
+  const anchor = currentSearchIsAddress ? currentSearchFull : currentSearchCityState;
+
   if (currentLat && currentLng) {
-    // Show a pin on the searched location, then search the category nearby.
-    // Google Maps format: /maps/search/{query}/@lat,lng,zoom — drops results
-    // centered on coordinates. We append the location name so Maps also shows
-    // it as a labeled anchor point in the results list.
-    return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(loc)}/@${currentLat},${currentLng},${GMAPS_ZOOM}z`;
+    // Coordinates center the viewport precisely; anchor name labels the origin point
+    return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(anchor)}/@${currentLat},${currentLng},${GMAPS_ZOOM}z`;
   }
-  // Fallback: text-only search if geocode hasn't resolved yet
-  return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(loc)}`;
+  // Fallback: text-only if geocode hasn't resolved yet
+  return `https://www.google.com/maps/search/${encodeURIComponent(query)}+near+${encodeURIComponent(anchor)}`;
 }
 
 function launchMaps(tile, query) {
